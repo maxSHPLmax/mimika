@@ -105,6 +105,7 @@ export class ExerciseRunner {
       res = { target: plan.target, valid: false, guided: true };
     }
     res.cue = plan.cue;
+    res.rep = this.rep;
     this.results.push(res);
     this.onEvent({ type: 'rep', rep: this.rep, result: res });
     // Если мышцы устали — заканчиваем упражнение раньше (не раньше 4-го повтора).

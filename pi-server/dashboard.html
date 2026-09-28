@@ -206,7 +206,9 @@
   }
 
   function model(data) {
-    const sessions = (data.sessions || []).filter((s) => s.completed && s.startedAt)
+    // Еженедельные проверки — не занятия: в статистику практики не входят.
+    const checkins = (data.sessions || []).filter((s) => s.kind === 'checkin' && s.completed).sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+    const sessions = (data.sessions || []).filter((s) => s.completed && s.startedAt && s.kind !== 'checkin')
       .map((s) => ({ ...s, start: new Date(s.startedAt) }))
       .sort((a, b) => a.start - b.start);
     const byDay = new Map();
@@ -233,7 +235,7 @@
       if (+d === +today) return 'pending';
       return 'miss';
     };
-    return { sessions, byDay, rest, today, first, status };
+    return { sessions, byDay, rest, today, first, status, checkins };
   }
 
   let lastData = null;
@@ -245,6 +247,8 @@
     $('subtitle').textContent = M.sessions.length
       ? `Последнее занятие: ${fmtDate(last.start)} в ${fmtTime(last.start)}. Цель по памятке — 2–3 коротких занятия в день.`
       : 'Пока нет занятий на сервере.';
+    const lc = M.checkins[M.checkins.length - 1];
+    if (lc) $('subtitle').textContent += ` Последняя еженедельная проверка: ${fmtDate(new Date(lc.startedAt))}.`;
 
     renderKpis(M);
     renderCalendar(M);

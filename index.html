@@ -30,6 +30,7 @@
     <p class="today"><span id="today-dots" class="dots" aria-hidden="true"></span><span id="today-text"></span></p>
     <p id="last-session" class="muted"></p>
     <div id="rest-banner" class="banner" hidden></div>
+    <button class="due" id="checkin-due" data-go="progress" hidden><span>Пора сделать еженедельную проверку</span><small>1–2 минуты, покажет изменения за неделю</small></button>
   </div>
   <div class="actions">
     <button class="primary" id="btn-start">Начать занятие</button>
@@ -209,9 +210,23 @@
   </div>
   <div id="hist-list" class="hist-list"></div>
   <div class="actions">
+    <button class="secondary" data-go="progress">Прогресс и еженедельные проверки</button>
     <button class="secondary" id="hist-dashboard" hidden>Дашборд занятий</button>
     <button class="secondary" id="hist-copy">Скопировать отчёт за 7 дней</button>
   </div>
+</section>
+
+<!-- ПРОГРЕСС -->
+<section class="screen scroll" id="progress">
+  <header class="topline"><button class="link" data-go="home">На главную</button></header>
+  <div class="stack">
+    <h2>Прогресс</h2>
+    <p class="muted">Раз в неделю — короткая проверка: лицо в покое и четыре выражения, по две попытки. Одинаковые условия делают недели сравнимыми между собой.</p>
+    <button class="primary" id="pg-start">Сделать проверку</button>
+    <p class="muted small">Тот же свет, то же место и та же подставка, что и в прошлый раз — тогда сравнение честнее.</p>
+  </div>
+  <div id="pg-body"></div>
+  <p class="fineprint" style="margin-top:22px">Это то, что увидела камера телефона, приблизительно. Небольшие изменения она может не заметить, а свет и расстояние влияют на результат. Фото хранятся только на этом телефоне. Оценивать восстановление — вместе с врачом.</p>
 </section>
 
 <!-- НАСТРОЙКИ -->

@@ -1,8 +1,8 @@
 // Офлайн-кэш. Меняйте VERSION при каждом обновлении файлов приложения.
-const VERSION = 'mimika-v5';
+const VERSION = 'mimika-v6';
 const SHELL = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
-  'js/app.js', 'js/analysis.js', 'js/exercises.js', 'js/features.js', 'js/geometry.js',
+  'js/app.js', 'js/analysis.js', 'js/checkin.js', 'js/photos.js', 'js/exercises.js', 'js/features.js', 'js/geometry.js',
   'js/session.js', 'js/storage.js', 'js/sync.js', 'js/tracker.js', 'js/voice.js',
   'vendor/mediapipe/vision_bundle.mjs',
   'icons/icon-180.png', 'icons/icon-192.png',

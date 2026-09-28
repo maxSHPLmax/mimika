@@ -7,6 +7,9 @@ import { ExerciseRunner, TIMING, estimateSessionSec } from './session.js';
 import * as store from './storage.js';
 import * as voice from './voice.js';
 import * as sync from './sync.js';
+import * as photos from './photos.js';
+import { POSES, REST_POSE, CHECKIN_TIMING, plansFor, summarizePose, isCheckin, checkinDue, qualityFlags } from './checkin.js';
+import { dist, FACE_EDGE } from './geometry.js';
 
 const $ = (id) => document.getElementById(id);
 const other = (s) => (s === 'r' ? 'l' : 'r');
@@ -14,6 +17,7 @@ const MAX_SESSION_MS = 15 * 60 * 1000;
 const MIN_LIGHT = 50;
 const BASELINE_MS = 2500;
 let baselineT0 = 0;
+let baselineFaceFrac = null;
 
 let settings = store.loadSettings();
 voice.initVoice(settings.voice);
@@ -29,6 +33,7 @@ function show(id) {
   if (id === 'home') renderHome();
   if (id === 'history') renderHistory();
   if (id === 'settings') renderSettings();
+  if (id === 'progress') renderProgress();
 }
 
 let massageFrom = 'home';
@@ -60,8 +65,10 @@ function minutes(sec) { return Math.max(1, Math.round(sec / 60)); }
 function renderHome() {
   const h = new Date().getHours();
   $('greeting').textContent = h < 5 ? 'Доброй ночи' : h < 12 ? 'Доброе утро' : h < 18 ? 'Добрый день' : 'Добрый вечер';
-  const all = store.loadSessions().filter((s) => s.completed);
+  const everything = store.loadSessions();
+  const all = everything.filter((s) => s.completed && !isCheckin(s));
   const today = store.sessionsToday(all).length;
+  $('checkin-due').hidden = !checkinDue(everything);
   const max = settings.maxSessionsPerDay;
   $('today-dots').innerHTML = Array.from({ length: max }, (_, i) => `<i class="${i < today ? 'on' : ''}"></i>`).join('');
   $('today-text').textContent = today ? `Сегодня ${today} из ${max} занятий` : 'Сегодня занятий ещё не было';
@@ -157,12 +164,14 @@ function setupActions(buttons) {
   }
 }
 
-async function startStage() {
+let stageMode = 'session'; // 'session' | 'checkin'
+async function startStage(mode = 'session') {
+  stageMode = mode === 'checkin' ? 'checkin' : 'session';
   show('stage');
   setSheet('setup');
   $('cuebox').hidden = true;
   $('btn-pause').hidden = true;
-  $('ex-name').textContent = 'Подготовка';
+  $('ex-name').textContent = stageMode === 'checkin' ? 'Еженедельная проверка' : 'Подготовка';
   $('ex-count').textContent = '';
   $('setup-checks').hidden = true;
   $('setup-title').textContent = 'Включаю камеру…';
@@ -178,7 +187,7 @@ async function startStage() {
   } catch (e) {
     $('setup-title').textContent = 'Нет доступа к камере';
     $('setup-text').textContent = 'Разрешите доступ к камере: в Safari нажмите «аА» в адресной строке → «Настройки веб-сайта» → «Камера» → «Разрешить». Для приложения на экране «Домой» — «Настройки» iPhone → «Safari» → «Камера».';
-    setupActions([{ text: 'Попробовать снова', primary: true, onClick: startStage }, { text: 'На главную', onClick: leaveStage }]);
+    setupActions([{ text: 'Попробовать снова', primary: true, onClick: () => startStage(stageMode) }, { text: 'На главную', onClick: leaveStage }]);
     return;
   }
   $('setup-title').textContent = 'Загружаю распознавание лица…';
@@ -187,7 +196,7 @@ async function startStage() {
   } catch (e) {
     $('setup-title').textContent = 'Не удалось загрузить распознавание';
     $('setup-text').textContent = 'При первом запуске нужен интернет — приложение скачивает модель (около 4 МБ). Потом она работает и без сети.';
-    setupActions([{ text: 'Попробовать снова', primary: true, onClick: startStage }, { text: 'На главную', onClick: leaveStage }]);
+    setupActions([{ text: 'Попробовать снова', primary: true, onClick: () => startStage(stageMode) }, { text: 'На главную', onClick: leaveStage }]);
     return;
   }
   $('setup-title').textContent = 'Устройтесь поудобнее';
@@ -244,13 +253,22 @@ function onFrame(f) {
     if (bar) bar.style.width = `${p * 100}%`;
     if (p >= 1) {
       reference = makeReference(medianShape(baseline));
+      baselineFaceFrac = dist(reference.pts[FACE_EDGE.r], reference.pts[FACE_EDGE.l]) / f.w;
       baseline = [];
-      beginSession();
+      stageMode === 'checkin' ? beginCheckin(pts) : beginSession();
     }
   } else if (step === 'session' && sess?.runner && sess.runner.phase !== 'done') {
     const sample = pts && !framing ? { ok: true, ...extract(pts, reference, sess.runner.ex) } : { ok: false };
-    sess.runner.update(f.t, sample);
+    const run = sess.runner;
+    run.update(f.t, sample);
     updateLive(f.t);
+    if (sess.mode === 'checkin') {
+      sess.light.push(f.brightness);
+      // Фото — ближе к концу усилия, по одному на попытку; оставим снимок лучшей попытки.
+      if (run.phase === 'effort' && sample.ok && run.progress(f.t) > 0.75 && !sess.shots[run.rep]) {
+        sess.shots[run.rep] = photos.captureFace(video, pts);
+      }
+    }
   }
 }
 
@@ -427,7 +445,7 @@ function onRunnerEvent(e) {
   } else if (e.type === 'fatigue') {
     toast('Движения стали слабее — мышцы устали. Заканчиваем это упражнение.');
   } else if (e.type === 'done') {
-    finishExercise(e.results);
+    sess.mode === 'checkin' ? finishPose(e.results) : finishExercise(e.results);
   }
 }
 
@@ -490,8 +508,73 @@ $('pause-skip').addEventListener('click', () => {
 });
 $('btn-end').addEventListener('click', () => {
   if (step !== 'session') { leaveStage(); return; }
+  if (sess?.mode === 'checkin') { if (confirm('Прервать проверку? Результат не сохранится.')) { sess = null; leaveStage(); } return; }
   if (confirm('Завершить занятие?')) finishSession();
 });
+
+// ——— Еженедельная проверка ———
+function beginCheckin(restPts) {
+  step = 'session';
+  sess = {
+    mode: 'checkin', t0: performance.now(), list: POSES, idx: 0, runner: null, hint: '', shots: {}, light: [],
+    record: {
+      id: Date.now().toString(36), kind: 'checkin', startedAt: new Date().toISOString(),
+      affected: settings.affected, poses: [], completed: false, quality: { faceFrac: baselineFaceFrac && +baselineFaceFrac.toFixed(3) },
+    },
+  };
+  const id = sess.record.id;
+  photos.captureFace(video, restPts).then((b) => b && photos.putPhoto(`${id}:rest`, b));
+  $('btn-pause').hidden = true;
+  voice.say('Проверка. Четыре выражения, по две попытки. Спокойно, как на занятиях.');
+  setTimeout(() => { if (sess?.mode === 'checkin' && step === 'session') runPose(); }, 3000);
+}
+
+function runPose() {
+  const pose = sess.list[sess.idx];
+  sess.shots = {};
+  sess.hint = '';
+  $('ex-name').textContent = `Проверка: ${pose.short.toLowerCase()}`;
+  sess.runner = new ExerciseRunner({ ex: pose, plans: plansFor(pose, lmAffected(), nameOf), affected: lmAffected(), timing: CHECKIN_TIMING, onEvent: onRunnerEvent });
+  setSheet(null);
+  $('cuebox').hidden = false;
+  sess.runner.start(performance.now());
+}
+
+async function finishPose(results) {
+  const pose = sess.list[sess.idx];
+  const sum = summarizePose(pose, results);
+  const shot = await (sess.shots[sum.bestRep ?? 0] || sess.shots[0] || sess.shots[1] || null);
+  if (shot) { await photos.putPhoto(`${sess.record.id}:${pose.id}`, shot); sum.photo = true; }
+  sess.record.poses.push(sum);
+  sess.runner = null;
+  $('bar-a').classList.remove('visible'); $('bar-h').classList.remove('visible');
+  sess.idx++;
+  if (sess.idx < sess.list.length) runPose(); else finishCheckin();
+}
+
+function finishCheckin() {
+  const rec = sess.record;
+  rec.endedAt = new Date().toISOString();
+  rec.durationSec = Math.round((Date.parse(rec.endedAt) - Date.parse(rec.startedAt)) / 1000);
+  rec.completed = rec.poses.some((p) => p.valid > 0);
+  const L = sess.light;
+  rec.quality.light = L.length ? Math.round(L.reduce((a, b) => a + b, 0) / L.length) : null;
+  if (rec.completed) { store.saveSession(rec); autoSync(); }
+  stopStage();
+  voice.say(rec.completed ? 'Проверка завершена. Спасибо!' : 'Не получилось измерить. Попробуйте при лучшем свете.');
+  $('cuebox').hidden = true;
+  progressPose = 'smile';
+  show('progress');
+  toast(rec.completed ? 'Проверка сохранена' : 'Не удалось измерить — попробуйте при лучшем свете', 4000);
+}
+
+function stopStage() {
+  step = null;
+  if (tracker) tracker.stop();
+  tracker = null;
+  try { wakeLock?.release(); } catch { /* ignore */ }
+  wakeLock = null;
+}
 
 function finishSession() {
   const rec = sess.record;
@@ -592,7 +675,7 @@ async function share(text) {
 // ——— История ———
 function renderHistory() {
   $('hist-dashboard').hidden = !sync.config();
-  const all = store.loadSessions().filter((s) => s.completed);
+  const all = store.loadSessions().filter((s) => s.completed && !isCheckin(s));
   const chart = $('hist-chart');
   const pts = all.slice(-20);
   if (pts.length < 2) {
@@ -634,10 +717,110 @@ $('hist-dashboard').addEventListener('click', openDashboard);
 
 $('hist-copy').addEventListener('click', () => {
   const since = Date.now() - 7 * 864e5;
-  const recent = store.loadSessions().filter((s) => s.completed && Date.parse(s.startedAt) > since);
+  const recent = store.loadSessions().filter((s) => s.completed && !isCheckin(s) && Date.parse(s.startedAt) > since);
   if (!recent.length) { toast('За последние 7 дней занятий нет'); return; }
   share(reportText(recent));
 });
+
+// ——— Прогресс (еженедельные проверки) ———
+let progressPose = 'smile';
+const objectUrls = [];
+const cap = (t) => t[0].toUpperCase() + t.slice(1);
+
+$('pg-start').addEventListener('click', () => { voice.unlock(); startStage('checkin'); });
+
+async function photoUrl(key) {
+  const b = await photos.getPhoto(key);
+  if (!b) return null;
+  const u = URL.createObjectURL(b);
+  objectUrls.push(u);
+  return u;
+}
+
+function renderProgress() {
+  objectUrls.splice(0).forEach((u) => URL.revokeObjectURL(u));
+  const all = store.loadSessions().filter((x) => isCheckin(x) && x.completed)
+    .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+  const body = $('pg-body');
+  $('pg-start').textContent = all.length ? 'Сделать проверку' : 'Сделать первую проверку';
+  if (!all.length) {
+    body.innerHTML = '<p class="muted pg-block">Первая проверка станет точкой отсчёта. Через неделю здесь появится сравнение.</p>';
+    return;
+  }
+  const first = all[0], last = all[all.length - 1], two = all.length > 1;
+  const A = side.adv(settings.affected), H = side.adv(other(settings.affected));
+  const poses = [REST_POSE, ...POSES];
+  let html = `<div class="pg-block"><h3>Фото: ${two ? 'первая и последняя проверка' : 'точка отсчёта'}</h3>
+    <div class="pose-seg" id="pg-seg">${poses.map((p) => `<button data-pose="${p.id}" aria-pressed="${p.id === progressPose}">${p.short}</button>`).join('')}</div>
+    <div class="compare">
+      <figure><div class="ph" id="ph-first">…</div><figcaption>${two ? 'Первая' : 'Точка отсчёта'}: ${fmtDay(new Date(first.startedAt))}</figcaption></figure>
+      ${two ? `<figure><div class="ph" id="ph-last">…</div><figcaption>Последняя: ${fmtDay(new Date(last.startedAt))}</figcaption></figure>`
+            : '<figure><div class="ph">Через неделю здесь появится новое фото для сравнения</div></figure>'}
+    </div></div>`;
+  html += `<div class="pg-block"><h3>Что видела камера</h3>
+    <p class="muted small">Сплошная линия — ${A} (лучшая из двух попыток), полоса — разброс попыток. Пунктир — ${H}. Оранжевая точка — неделя с неидеальными условиями.</p>`;
+  for (const p of POSES) html += trendCard(p, all, first, A, H);
+  html += '</div>';
+  html += `<div class="pg-block"><h3>Все проверки</h3><div class="ci-list">${all.slice().reverse().map((c) => {
+    const fl = qualityFlags(c, first);
+    return `<div>${cap(fmtDay(new Date(c.startedAt)))}, ${fmtTime(new Date(c.startedAt))}${fl.length ? `<div class="flags">${fl.join(', ')}</div>` : ''}</div>`;
+  }).join('')}</div></div>`;
+  body.innerHTML = html;
+  $('pg-seg').onclick = (e) => {
+    const b = e.target.closest('[data-pose]');
+    if (!b) return;
+    progressPose = b.dataset.pose;
+    document.querySelectorAll('#pg-seg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    loadComparePhotos(first, last, two);
+  };
+  loadComparePhotos(first, last, two);
+}
+
+async function loadComparePhotos(first, last, two) {
+  const set = async (el, rec) => {
+    if (!el) return;
+    const u = await photoUrl(`${rec.id}:${progressPose}`);
+    el.innerHTML = u ? `<img alt="Фото проверки" src="${u}">` : 'Фото нет';
+  };
+  await set($('ph-first'), first);
+  if (two) await set($('ph-last'), last);
+}
+
+function trendCard(pose, all, first, A, H) {
+  const pts = all.map((c) => ({ c, v: (c.poses || []).find((x) => x.id === pose.id) })).filter((x) => x.v && x.v.a);
+  if (!pts.length) return `<div class="trend"><div class="tt">${pose.title}</div><div class="tv">Нет данных</div></div>`;
+  const lv = pts[pts.length - 1].v, pct = lv.unit === '%';
+  const u = pct ? '%' : ' мм';
+  const range = (o) => (o.lo === o.hi ? '' : ` (попытки ${o.lo}–${o.hi}${u})`);
+  const sideText = (o, name) => (o.best > 0
+    ? (pct ? `глаз ${name} закрывается ≈ на ${o.best}%${range(o)}` : `${name} ≈${o.best} мм${range(o)}`)
+    : `${name} движение не обнаружено`);
+  const text = `Последняя: ${sideText(lv.a, A)}; ${sideText(lv.h, H)}.`;
+  const W = 320, Hh = 110, L = 30, R = 10, T = 8, B = 18;
+  const max = pct ? 100 : Math.max(2, ...pts.map((p) => Math.max(p.v.a.hi, p.v.h.best))) * 1.1;
+  const n = pts.length;
+  const x = (i) => (n === 1 ? (L + W - R) / 2 : L + (i * (W - L - R)) / (n - 1));
+  const y = (v) => T + (1 - Math.min(v, max) / max) * (Hh - T - B);
+  let svg = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${pose.title}: тренд">`;
+  svg += `<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="#C9D4D8"/>`;
+  svg += `<text x="${L - 5}" y="${y(0) + 4}" font-size="10" text-anchor="end" fill="#5B6C75">0</text>`;
+  svg += `<text x="${L - 5}" y="${y(max) + 8}" font-size="10" text-anchor="end" fill="#5B6C75">${pct ? '100%' : Math.round(max) + ' мм'}</text>`;
+  if (n > 1) {
+    const band = pts.map((p, i) => `${x(i)},${y(p.v.a.hi)}`).concat(pts.slice().reverse().map((p, j) => `${x(n - 1 - j)},${y(p.v.a.lo)}`)).join(' ');
+    svg += `<polygon points="${band}" fill="#F6D9A8" opacity=".7"/>`;
+    svg += `<polyline points="${pts.map((p, i) => `${x(i)},${y(p.v.h.best)}`).join(' ')}" fill="none" stroke="#4C7C88" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+    svg += `<polyline points="${pts.map((p, i) => `${x(i)},${y(p.v.a.best)}`).join(' ')}" fill="none" stroke="#1E2B33" stroke-width="2"/>`;
+  }
+  pts.forEach((p, i) => {
+    const flagged = qualityFlags(p.c, first).length > 0;
+    svg += `<circle cx="${x(i)}" cy="${y(p.v.a.best)}" r="${flagged ? 4.5 : 3}" fill="${flagged ? '#E49A2E' : '#1E2B33'}"><title>${fmtDay(new Date(p.c.startedAt))}: ${p.v.a.best}${pct ? '%' : ' мм'}</title></circle>`;
+  });
+  const d = (c) => new Date(c.startedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+  svg += `<text x="${x(0)}" y="${Hh - 4}" font-size="10" text-anchor="${n === 1 ? 'middle' : 'start'}" fill="#5B6C75">${d(pts[0].c)}</text>`;
+  if (n > 1) svg += `<text x="${x(n - 1)}" y="${Hh - 4}" font-size="10" text-anchor="end" fill="#5B6C75">${d(pts[n - 1].c)}</text>`;
+  svg += '</svg>';
+  return `<div class="trend"><div class="tt"><span>${pose.title}</span></div><div class="tv">${text}</div>${svg}</div>`;
+}
 
 // ——— Настройки ———
 function renderSettings() {
@@ -775,6 +958,7 @@ $('sync-forget').addEventListener('click', () => {
 $('set-clear').addEventListener('click', () => {
   if (!confirm('Удалить все занятия и настройки с этого телефона? Копия на Raspberry Pi, если она подключена, останется.')) return;
   store.clearAll();
+  photos.clearPhotos();
   settings = store.loadSettings();
   renderSettings();
   toast('Данные удалены');

@@ -165,6 +165,31 @@ p { margin: 0; }
 .phase-line i { display: block; height: 100%; width: 0; background: var(--paper); }
 .cuebox.effort .phase-line i { background: var(--dawn); }
 
+/* ——— Еженедельная проверка / прогресс ——— */
+.due {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left;
+  background: var(--paper); border: 0; border-left: 4px solid var(--tide); border-radius: 0 var(--radius-s) var(--radius-s) 0;
+  padding: 12px 16px; font-size: 17px; font-weight: 500; cursor: pointer;
+}
+.due small { font-weight: 400; font-size: 14px; color: var(--muted); }
+.pg-block { margin-top: 26px; }
+.pg-block h3 { margin: 0 0 10px; font-size: 19px; }
+.pose-seg { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+.pose-seg button { flex: 0 0 auto; border: 1px solid var(--line); background: var(--paper); border-radius: 999px; padding: 8px 14px; font-size: 15px; cursor: pointer; }
+.pose-seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.compare figure { margin: 0; }
+.compare .ph { aspect-ratio: 1; border-radius: 14px; background: var(--paper); overflow: hidden; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 14px; text-align: center; padding: 8px; }
+.compare img { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; }
+.compare figcaption { font-size: 14px; color: var(--muted); margin-top: 6px; }
+.trend { background: var(--paper); border-radius: var(--radius-s); padding: 12px 12px 6px; margin-top: 10px; }
+.trend .tt { display: flex; justify-content: space-between; gap: 8px; font-weight: 500; }
+.trend .tv { font-size: 14px; color: var(--muted); margin: 2px 0 6px; }
+.trend svg { width: 100%; height: auto; display: block; }
+.ci-list { margin-top: 10px; }
+.ci-list div { padding: 10px 0; border-top: 1px solid var(--line); font-size: 15px; }
+.ci-list .flags { color: var(--dawn); font-size: 14px; }
+
 /* ——— Итоги ——— */
 .results { list-style: none; margin: 22px 0 0; padding: 0; display: flex; flex-direction: column; }
 .results li { padding: 14px 0; border-top: 1px solid var(--line); }
