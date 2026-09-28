@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Мимика — занятия</title>
+<style>
+  :root {
+    --mist: #E6ECEE; --paper: #F7F9F9; --ink: #1E2B33; --muted: #5B6C75; --line: #C9D4D8;
+    --dawn: #E49A2E; --dawn-2: #F0BD6E; --dawn-3: #F6D9A8; --tide: #4C7C88; --moss: #3E8A5E; --miss: #D9E0E3;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; background: var(--mist); color: var(--ink); font: 400 16px/1.45 var(--font); -webkit-text-size-adjust: 100%; }
+  main { max-width: 980px; margin: 0 auto; padding: calc(env(safe-area-inset-top, 0px) + 18px) 18px calc(env(safe-area-inset-bottom, 0px) + 30px); }
+  header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 18px; }
+  .wordmark { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; color: var(--muted); }
+  .mark { width: 16px; height: 16px; border-radius: 50%; background: linear-gradient(90deg, var(--tide) 50%, var(--dawn) 50%); }
+  h1 { font-size: 30px; line-height: 1.15; margin: 6px 0 4px; letter-spacing: -0.01em; }
+  h2 { font-size: 18px; margin: 0 0 12px; }
+  .sub, .muted { color: var(--muted); }
+  .small { font-size: 14px; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .ghost { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 8px 14px; font-size: 15px; white-space: nowrap; }
+
+  .kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+  .kpi { background: var(--paper); border-radius: 16px; padding: 14px 16px; }
+  .kpi .label { font-size: 14px; color: var(--muted); }
+  .kpi .value { font-size: 30px; font-weight: 700; line-height: 1.1; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .kpi .value small { font-size: 17px; font-weight: 500; color: var(--muted); }
+  .kpi .note { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+  .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  .card { background: var(--paper); border-radius: 18px; padding: 16px; overflow: hidden; }
+  .card svg { display: block; width: 100%; height: auto; }
+  .scroll-x { overflow-x: auto; }
+
+  /* календарь */
+  .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .cal .dow { font-size: 12px; color: var(--muted); text-align: center; }
+  .day { aspect-ratio: 1; border-radius: 10px; border: 0; padding: 0; position: relative; display: flex; align-items: center; justify-content: center; font-size: 13px; font-variant-numeric: tabular-nums; background: transparent; color: var(--muted); }
+  .day.before, .day.future { opacity: .35; }
+  .day.miss { background: var(--miss); color: var(--muted); }
+  .day.s1 { background: var(--dawn-3); color: var(--ink); }
+  .day.s2 { background: var(--dawn-2); color: var(--ink); }
+  .day.s3 { background: var(--dawn); color: var(--ink); font-weight: 700; }
+  .day.rest { background: transparent; box-shadow: inset 0 0 0 2px var(--moss); color: var(--moss); }
+  .day.today { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .day.sel { box-shadow: inset 0 0 0 3px var(--ink); }
+  .day.pending { box-shadow: inset 0 0 0 1px var(--line); }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; font-size: 13px; color: var(--muted); }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 4px; vertical-align: -1px; margin-right: 5px; }
+
+  .daydetail { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+  .daydetail h3 { margin: 0 0 6px; font-size: 16px; }
+  .sess { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 15px; }
+  .sess:last-child { border-bottom: 0; }
+  .sess .t { font-weight: 600; }
+
+  .bars .row { display: grid; grid-template-columns: 9.5em 1fr 3.2em; gap: 10px; align-items: center; padding: 5px 0; font-size: 15px; }
+  .bars .track { height: 10px; background: var(--miss); border-radius: 5px; overflow: hidden; }
+  .bars .fill { height: 100%; background: var(--tide); border-radius: 5px; }
+  .bars .num { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; }
+
+  .feel { display: flex; gap: 10px; }
+  .feel div { flex: 1; background: var(--mist); border-radius: 12px; padding: 10px; text-align: center; }
+  .feel b { display: block; font-size: 22px; }
+
+  .gate { background: var(--paper); border-radius: 18px; padding: 22px; max-width: 520px; }
+  .gate p + p { margin-top: 10px; }
+  .foot { margin-top: 22px; font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .foot button { background: none; border: 0; color: var(--tide); padding: 0; font-size: 13px; }
+
+  @media (min-width: 760px) {
+    .kpis { grid-template-columns: repeat(4, 1fr); }
+    .grid { grid-template-columns: 1fr 1fr; }
+    .wide { grid-column: 1 / -1; }
+    h1 { font-size: 34px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <span class="wordmark"><i class="mark"></i>Мимика</span>
+      <h1>Как идут занятия</h1>
+      <p class="sub" id="subtitle">Загружаю…</p>
+    </div>
+    <button class="ghost" id="refresh" hidden>Обновить</button>
+  </header>
+
+  <section class="gate" id="gate" hidden>
+    <h2 id="gate-title">Нужен ключ доступа</h2>
+    <p id="gate-text">Откройте эту страницу из приложения Мимика: Настройки → Резервная копия → «Открыть дашборд». Или по ссылке с ключом, которую выдал установщик на Raspberry Pi.</p>
+  </section>
+
+  <div id="content" hidden>
+    <section class="kpis" aria-label="Последние 7 дней">
+      <div class="kpi"><div class="label">Дни с занятиями</div><div class="value" id="k-days"></div><div class="note" id="k-days-note"></div></div>
+      <div class="kpi"><div class="label">Занятий за неделю</div><div class="value" id="k-sessions"></div><div class="note" id="k-sessions-note"></div></div>
+      <div class="kpi"><div class="label">Минут за неделю</div><div class="value" id="k-minutes"></div><div class="note" id="k-minutes-note"></div></div>
+      <div class="kpi"><div class="label">Серия</div><div class="value" id="k-streak"></div><div class="note" id="k-streak-note"></div></div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Календарь</h2>
+        <div class="cal" id="cal"></div>
+        <div class="legend">
+          <span><i style="background:var(--dawn-3)"></i>1 занятие</span>
+          <span><i style="background:var(--dawn-2)"></i>2</span>
+          <span><i style="background:var(--dawn)"></i>3 и больше</span>
+          <span><i style="box-shadow:inset 0 0 0 2px var(--moss)"></i>отдых по памятке</span>
+          <span><i style="background:var(--miss)"></i>без занятий</span>
+        </div>
+        <div class="daydetail" id="daydetail"></div>
+      </section>
+
+      <section class="card">
+        <h2>Минуты по дням</h2>
+        <p class="muted small" style="margin:-6px 0 10px">Последние 14 дней. Пунктир — 20 минут: два коротких занятия.</p>
+        <div id="minutes"></div>
+      </section>
+
+      <section class="card wide">
+        <h2>Когда занимается</h2>
+        <p class="muted small" style="margin:-6px 0 10px">Каждая точка — занятие; чем больше точка, тем дольше. Последние 14 дней.</p>
+        <div class="scroll-x" id="schedule"></div>
+      </section>
+
+      <section class="card">
+        <h2>Упражнения за 14 дней</h2>
+        <p class="muted small" style="margin:-6px 0 10px">Сколько раз выполнено из тех, что были в занятиях.</p>
+        <div class="bars" id="exbars"></div>
+      </section>
+
+      <section class="card">
+        <h2>Самочувствие после занятий</h2>
+        <div class="feel" id="feel"></div>
+        <h2 style="margin-top:20px">Движение поражённой стороны</h2>
+        <p class="muted small" style="margin:-6px 0 10px">Медиана по упражнениям, приблизительно. Важен тренд, а не отдельное число.</p>
+        <div id="trend"></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>Данные хранятся на домашнем Raspberry Pi. Это не медицинский отчёт.</span>
+    <button id="forget" hidden>Забыть ключ на этом устройстве</button>
+  </div>
+</main>
+
+<script>
+(() => {
+  const KEY = 'mimika.dashboard.key';
+  const $ = (id) => document.getElementById(id);
+  const DAY = 864e5;
+  const GOAL_SESSIONS = 2;           // из памятки: 2–3 занятия в день
+  const GOAL_MINUTES = 20;
+
+  // Ключ: из #k=… (один раз), затем из памяти браузера. Из адресной строки убираем.
+  const m = location.hash.match(/k=([A-Za-z0-9_-]+)/);
+  if (m) { try { localStorage.setItem(KEY, m[1]); } catch {} history.replaceState(null, '', location.pathname); }
+  let token = null;
+  try { token = localStorage.getItem(KEY); } catch {}
+
+  const pad = (n) => String(n).padStart(2, '0');
+  const dayKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+  const fmtTime = (d) => d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  const fmtDate = (d, o = { day: 'numeric', month: 'long' }) => d.toLocaleDateString('ru-RU', o);
+  const minutes = (sec) => Math.max(1, Math.round((sec || 0) / 60));
+  const plural = (n, one, few, many) => {
+    const a = Math.abs(n) % 100, b = a % 10;
+    if (a > 10 && a < 20) return many;
+    if (b > 1 && b < 5) return few;
+    if (b === 1) return one;
+    return many;
+  };
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const FEEL = { good: 'хорошо', tired: 'устало', twitch: 'подёргивания' };
+
+  function gate(title, text) {
+    $('gate').hidden = false; $('content').hidden = true; $('refresh').hidden = true;
+    $('gate-title').textContent = title; if (text) $('gate-text').textContent = text;
+    $('subtitle').textContent = '';
+    $('forget').hidden = !token;
+  }
+
+  async function load() {
+    if (!token) return gate('Нужен ключ доступа');
+    $('subtitle').textContent = 'Загружаю…';
+    let res;
+    try {
+      const base = location.pathname.replace(/dashboard(\.html)?\/?$/, '');   // работает и при монтировании под префиксом
+      res = await fetch(`${base}api/export`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
+    } catch { return gate('Сервер недоступен', 'Не удалось связаться с Raspberry Pi. Проверьте, что он включён, и обновите страницу.'); }
+    if (res.status === 401) return gate('Ключ не подошёл', 'Возможно, ключ на Raspberry Pi был изменён. Откройте дашборд заново из приложения или по новой ссылке.');
+    if (!res.ok) return gate('Ошибка сервера', `Код ответа: ${res.status}.`);
+    const data = await res.json();
+    render(data);
+  }
+
+  function model(data) {
+    const sessions = (data.sessions || []).filter((s) => s.completed && s.startedAt)
+      .map((s) => ({ ...s, start: new Date(s.startedAt) }))
+      .sort((a, b) => a.start - b.start);
+    const byDay = new Map();
+    for (const s of sessions) {
+      const k = dayKey(s.start);
+      if (!byDay.has(k)) byDay.set(k, []);
+      byDay.get(k).push(s);
+    }
+    // Подёргивания/отдых: по памятке — перерыв 1–2 дня. День отметки и следующий считаем отдыхом.
+    const rest = new Set();
+    for (const n of data.notes || []) {
+      if (n.type !== 'twitch' && n.type !== 'rest') continue;
+      const d = startOfDay(new Date(n.at));
+      rest.add(dayKey(d)); rest.add(dayKey(addDays(d, 1)));
+    }
+    const today = startOfDay(new Date());
+    const first = sessions.length ? startOfDay(sessions[0].start) : today;
+    const status = (d) => {
+      const k = dayKey(d), n = (byDay.get(k) || []).length;
+      if (d > today) return 'future';
+      if (d < first) return 'before';
+      if (n) return n >= 3 ? 's3' : n === 2 ? 's2' : 's1';
+      if (rest.has(k)) return 'rest';
+      if (+d === +today) return 'pending';
+      return 'miss';
+    };
+    return { sessions, byDay, rest, today, first, status };
+  }
+
+  let lastData = null;
+  function render(data) {
+    lastData = data;
+    const M = model(data);
+    $('gate').hidden = true; $('content').hidden = false; $('refresh').hidden = false; $('forget').hidden = false;
+    const last = M.sessions[M.sessions.length - 1];
+    $('subtitle').textContent = M.sessions.length
+      ? `Последнее занятие: ${fmtDate(last.start)} в ${fmtTime(last.start)}. Цель по памятке — 2–3 коротких занятия в день.`
+      : 'Пока нет занятий на сервере.';
+
+    renderKpis(M);
+    renderCalendar(M);
+    renderMinutes(M);
+    renderSchedule(M);
+    renderExercises(M);
+    renderFeel(M);
+    renderTrend(M);
+  }
+
+  function lastNDays(M, n) {
+    const out = [];
+    for (let i = n - 1; i >= 0; i--) out.push(addDays(M.today, -i));
+    return out;
+  }
+
+  function renderKpis(M) {
+    const week = lastNDays(M, 7).filter((d) => d >= M.first);
+    const counted = week.length || 1;
+    const withS = week.filter((d) => (M.byDay.get(dayKey(d)) || []).length > 0).length;
+    const restDays = week.filter((d) => !(M.byDay.get(dayKey(d)) || []).length && M.rest.has(dayKey(d))).length;
+    const sess = week.flatMap((d) => M.byDay.get(dayKey(d)) || []);
+    const mins = sess.reduce((a, s) => a + minutes(s.durationSec), 0);
+
+    $('k-days').innerHTML = `${withS}<small> из ${counted}</small>`;
+    $('k-days-note').textContent = restDays ? `ещё ${restDays} ${plural(restDays, 'день', 'дня', 'дней')} отдыха по памятке` : (counted < 7 ? `с начала занятий` : 'за последние 7 дней');
+    $('k-sessions').textContent = sess.length;
+    $('k-sessions-note').textContent = `цель ${GOAL_SESSIONS * counted}–${3 * counted}`;
+    $('k-minutes').textContent = mins;
+    $('k-minutes-note').textContent = sess.length ? `в среднем ${Math.round(mins / sess.length)} мин за занятие` : '—';
+
+    // Серия: подряд дни с занятиями или с отдыхом по памятке. Сегодня ещё не закончилось — не обрываем серию.
+    let d = M.today, streak = 0;
+    const st = (x) => M.status(x);
+    if (st(d) === 'pending') d = addDays(d, -1);
+    while (d >= M.first && ['s1', 's2', 's3', 'rest'].includes(st(d))) { streak++; d = addDays(d, -1); }
+    $('k-streak').innerHTML = `${streak}<small> ${plural(streak, 'день', 'дня', 'дней')}</small>`;
+    $('k-streak-note').textContent = 'подряд, включая дни отдыха';
+  }
+
+  let selected = null;
+  function renderCalendar(M) {
+    // 5 недель, по понедельникам, заканчивая текущей неделей
+    const dow = (M.today.getDay() + 6) % 7;
+    const start = addDays(M.today, -dow - 28);
+    const names = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+    let html = names.map((n) => `<div class="dow">${n}</div>`).join('');
+    for (let i = 0; i < 35; i++) {
+      const d = addDays(start, i), k = dayKey(d), cls = M.status(d);
+      const n = (M.byDay.get(k) || []).length;
+      const label = `${fmtDate(d)}: ${n ? `${n} ${plural(n, 'занятие', 'занятия', 'занятий')}` : cls === 'rest' ? 'отдых' : 'без занятий'}`;
+      html += `<button class="day ${cls}${+d === +M.today ? ' today' : ''}" data-k="${k}" aria-label="${esc(label)}">${d.getDate()}</button>`;
+    }
+    $('cal').innerHTML = html;
+    $('cal').onclick = (e) => { const b = e.target.closest('.day'); if (b) showDay(M, b.dataset.k); };
+    showDay(M, selected || dayKey(M.today));
+  }
+
+  function showDay(M, k) {
+    selected = k;
+    document.querySelectorAll('.day').forEach((b) => b.classList.toggle('sel', b.dataset.k === k));
+    const [y, mo, da] = k.split('-').map(Number);
+    const d = new Date(y, mo - 1, da);
+    const list = M.byDay.get(k) || [];
+    const title = fmtDate(d, { weekday: 'long', day: 'numeric', month: 'long' });
+    let body;
+    if (!list.length) {
+      body = M.rest.has(k) ? '<p class="muted">Отдых: были отмечены подёргивания или напряжение, памятка советует перерыв.</p>'
+        : +d === +M.today ? '<p class="muted">Сегодня занятий пока не было.</p>'
+        : d < M.first || d > M.today ? '<p class="muted">—</p>' : '<p class="muted">Занятий не было.</p>';
+    } else {
+      body = list.map((s) => {
+        const ex = s.exercises || [];
+        const done = ex.filter((e) => !e.skipped).length;
+        const skipped = ex.filter((e) => e.skipped).map((e) => e.title);
+        const parts = [`${minutes(s.durationSec)} мин`, `упражнений ${done} из ${ex.length}`];
+        if (s.checkin?.massage) parts.push('с самомассажем');
+        if (s.after) parts.push(`после: ${FEEL[s.after] || s.after}`);
+        return `<div class="sess"><span class="t">${fmtTime(s.start)}</span> — ${esc(parts.join(', '))}${skipped.length ? `<div class="muted small">Пропущено: ${esc(skipped.join(', '))}</div>` : ''}</div>`;
+      }).join('');
+    }
+    $('daydetail').innerHTML = `<h3>${esc(title[0].toUpperCase() + title.slice(1))}</h3>${body}`;
+  }
+
+  function renderMinutes(M) {
+    const days = lastNDays(M, 14);
+    const vals = days.map((d) => (M.byDay.get(dayKey(d)) || []).reduce((a, s) => a + minutes(s.durationSec), 0));
+    const W = 420, H = 180, L = 28, R = 6, T = 10, B = 26;
+    const max = Math.max(45, ...vals);
+    const bw = (W - L - R) / days.length;
+    const y = (v) => T + (1 - v / max) * (H - T - B);
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Минуты занятий по дням">`;
+    for (const v of [0, 20, 40].filter((v) => v <= max)) svg += `<text x="${L - 6}" y="${y(v) + 4}" font-size="11" text-anchor="end" fill="#5B6C75">${v}</text>`;
+    days.forEach((d, i) => {
+      const v = vals[i], x = L + i * bw + 3, h = (H - T - B) * (v / max);
+      const st = M.status(d);
+      const fill = v ? (v >= GOAL_MINUTES ? '#E49A2E' : '#F0BD6E') : 'none';
+      if (v) svg += `<rect x="${x}" y="${y(v)}" width="${bw - 6}" height="${h}" rx="4" fill="${fill}"><title>${fmtDate(d)}: ${v} мин</title></rect>`;
+      else if (st === 'rest') svg += `<rect x="${x}" y="${y(0) - 6}" width="${bw - 6}" height="6" rx="3" fill="#3E8A5E" opacity=".7"><title>${fmtDate(d)}: отдых</title></rect>`;
+      if (i % 2 === (days.length - 1) % 2) svg += `<text x="${x + (bw - 6) / 2}" y="${H - 8}" font-size="11" text-anchor="middle" fill="#5B6C75">${d.getDate()}</text>`;
+    });
+    svg += `<line x1="${L}" x2="${W - R}" y1="${y(GOAL_MINUTES)}" y2="${y(GOAL_MINUTES)}" stroke="#1E2B33" stroke-dasharray="4 4" stroke-width="1" opacity=".5"/>`;
+    svg += `<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="#C9D4D8"/></svg>`;
+    $('minutes').innerHTML = svg;
+  }
+
+  function renderSchedule(M) {
+    const days = lastNDays(M, 14);
+    // Ширина по реальному экрану: подписи остаются читаемыми и на телефоне, без прокрутки вбок
+    const W = Math.max(300, Math.round($('schedule').clientWidth || 360)), rowH = 24, T = 22, L = 58, R = 14, H = T + days.length * rowH + 6;
+    const h0 = 6, h1 = 24;
+    const x = (h) => L + ((h - h0) / (h1 - h0)) * (W - L - R);
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Время занятий">`;
+    const step = W < 480 ? 6 : 3;
+    for (let h = h0; h <= h1; h += step) {
+      svg += `<line x1="${x(h)}" x2="${x(h)}" y1="${T - 6}" y2="${H}" stroke="#C9D4D8" stroke-width="1"/>`;
+      svg += `<text x="${x(h)}" y="${T - 10}" font-size="11" text-anchor="middle" fill="#5B6C75">${pad(h)}:00</text>`;
+    }
+    days.forEach((d, i) => {
+      const cy = T + i * rowH + rowH / 2;
+      const st = M.status(d);
+      svg += `<text x="${L - 10}" y="${cy + 4}" font-size="12" text-anchor="end" fill="${st === 'rest' ? '#3E8A5E' : '#5B6C75'}">${fmtDate(d, { day: 'numeric', month: 'short' })}</text>`;
+      if (st === 'rest') svg += `<text x="${x(h0) + 6}" y="${cy + 4}" font-size="11" fill="#3E8A5E">отдых</text>`;
+      for (const s of M.byDay.get(dayKey(d)) || []) {
+        const h = s.start.getHours() + s.start.getMinutes() / 60;
+        const r = Math.min(10, 4 + minutes(s.durationSec) / 3);
+        svg += `<circle cx="${x(Math.min(h1, Math.max(h0, h)))}" cy="${cy}" r="${r}" fill="#E49A2E" opacity=".85"><title>${fmtDate(d)} ${fmtTime(s.start)}, ${minutes(s.durationSec)} мин</title></circle>`;
+      }
+    });
+    $('schedule').innerHTML = svg + '</svg>';
+  }
+
+  function renderExercises(M) {
+    const since = addDays(M.today, -13);
+    const stats = new Map();
+    for (const s of M.sessions) {
+      if (s.start < since) continue;
+      for (const e of s.exercises || []) {
+        const st = stats.get(e.id) || { title: e.title, planned: 0, done: 0 };
+        st.planned++; if (!e.skipped) st.done++;
+        stats.set(e.id, st);
+      }
+    }
+    const rows = [...stats.values()];
+    $('exbars').innerHTML = rows.length ? rows.map((r) => `
+      <div class="row"><span>${esc(r.title)}</span>
+        <div class="track"><div class="fill" style="width:${(100 * r.done / r.planned).toFixed(0)}%"></div></div>
+        <span class="num">${r.done}/${r.planned}</span></div>`).join('')
+      : '<p class="muted">За последние 14 дней занятий не было.</p>';
+  }
+
+  function renderFeel(M) {
+    const since = addDays(M.today, -13);
+    const c = { good: 0, tired: 0, twitch: 0 };
+    for (const s of M.sessions) if (s.start >= since && c[s.after] != null) c[s.after]++;
+    $('feel').innerHTML = Object.entries(c).map(([k, v]) => `<div><b>${v}</b><span class="small muted">${FEEL[k]}</span></div>`).join('');
+  }
+
+  function renderTrend(M) {
+    const pts = M.sessions.filter((s) => s.index != null).slice(-30);
+    if (pts.length < 2) { $('trend').innerHTML = '<p class="muted small">Появится после нескольких занятий.</p>'; return; }
+    const W = 420, H = 130, L = 34, R = 8, T = 8, B = 20;
+    const x = (i) => L + (i * (W - L - R)) / (pts.length - 1);
+    const y = (v) => T + (1 - Math.min(1, v)) * (H - T - B);
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Тренд движения поражённой стороны">`;
+    for (const v of [0, 0.5, 1]) svg += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="#C9D4D8"/><text x="${L - 6}" y="${y(v) + 4}" font-size="11" text-anchor="end" fill="#5B6C75">${v * 100}%</text>`;
+    svg += `<polyline points="${pts.map((s, i) => `${x(i)},${y(s.index)}`).join(' ')}" fill="none" stroke="#1E2B33" stroke-width="2" stroke-linejoin="round"/>`;
+    svg += `<text x="${L}" y="${H - 4}" font-size="11" fill="#5B6C75">${fmtDate(pts[0].start, { day: 'numeric', month: 'short' })}</text>`;
+    svg += `<text x="${W - R}" y="${H - 4}" font-size="11" text-anchor="end" fill="#5B6C75">${fmtDate(pts[pts.length - 1].start, { day: 'numeric', month: 'short' })}</text></svg>`;
+    $('trend').innerHTML = svg;
+  }
+
+  let rt = 0;
+  window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => lastData && renderSchedule(model(lastData)), 200); });
+  $('refresh').onclick = load;
+  $('forget').onclick = () => { try { localStorage.removeItem(KEY); } catch {} token = null; gate('Ключ удалён', 'На этом устройстве ключ больше не хранится.'); };
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && token) load(); });
+  load();
+})();
+</script>
+</body>
+</html>

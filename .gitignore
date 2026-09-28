@@ -1,0 +1,7 @@
+# Pi server secrets and data — never commit
+pi-server/config.json
+pi-server/data/
+__pycache__/
+node_modules/
+
+CONTEXT.md

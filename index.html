@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#E6ECEE">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Мимика">
+  <title>Мимика — гимнастика для лица</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- ГЛАВНАЯ -->
+<section class="screen" id="home" data-active>
+  <header class="topline">
+    <span class="wordmark" aria-label="Мимика"><i class="mark"></i>Мимика</span>
+    <button class="link" data-go="settings">Настройки</button>
+  </header>
+  <div class="home-body">
+    <h1 id="greeting">Доброе утро</h1>
+    <p class="today"><span id="today-dots" class="dots" aria-hidden="true"></span><span id="today-text"></span></p>
+    <p id="last-session" class="muted"></p>
+    <div id="rest-banner" class="banner" hidden></div>
+  </div>
+  <div class="actions">
+    <button class="primary" id="btn-start">Начать занятие</button>
+    <div class="row">
+      <button class="secondary" data-go="massage">Самомассаж</button>
+      <button class="secondary" data-go="history">История</button>
+    </div>
+    <p class="fineprint" id="home-sync" hidden></p>
+    <p class="fineprint">Видео не записывается и никуда не отправляется. На телефоне сохраняются только измерения.</p>
+  </div>
+</section>
+
+<!-- ПРОВЕРКА ПЕРЕД НАЧАЛОМ -->
+<section class="screen" id="checkin">
+  <header class="topline"><button class="link" data-go="home">Назад</button></header>
+  <div class="stack">
+    <h2>Перед началом</h2>
+    <p class="lead">Сейчас есть подёргивания мышц лица или сильное напряжение?</p>
+  </div>
+  <div class="actions">
+    <button class="primary" id="ci-no">Нет, всё спокойно</button>
+    <button class="secondary" id="ci-yes">Да, есть</button>
+  </div>
+</section>
+
+<section class="screen" id="rest">
+  <header class="topline"><button class="link" data-go="home">На главную</button></header>
+  <div class="stack">
+    <h2>Лучше сделать перерыв</h2>
+    <p class="lead">При подёргиваниях или сильном напряжении памятка советует отдохнуть 1–2 дня. Лицо не нужно перегружать.</p>
+    <p class="muted">Если подёргивания сохраняются или усиливаются, расскажите об этом врачу.</p>
+  </div>
+  <div class="actions">
+    <button class="primary" id="rest-ok">Хорошо, отдохну</button>
+    <button class="secondary" id="rest-massage">Только лёгкий самомассаж</button>
+    <button class="link center" id="rest-anyway">Всё равно начать упражнения</button>
+  </div>
+</section>
+
+<section class="screen" id="premassage">
+  <header class="topline"><button class="link" data-go="home">Назад</button></header>
+  <div class="stack">
+    <h2>Сначала самомассаж?</h2>
+    <p class="lead">5–8 минут лёгких поглаживаний разогревают ткани. После них мышцы лучше отвечают на упражнения.</p>
+  </div>
+  <div class="actions">
+    <button class="primary" id="pm-yes">Сделать самомассаж</button>
+    <button class="secondary" id="pm-skip">Сразу к упражнениям</button>
+  </div>
+</section>
+
+<!-- САМОМАССАЖ -->
+<section class="screen scroll" id="massage">
+  <header class="topline"><button class="link" id="massage-back">Назад</button></header>
+  <div class="timerbox">
+    <div class="timer" id="massage-timer" hidden><span id="massage-clock">6:00</span></div>
+    <button class="primary" id="massage-timer-btn">Запустить таймер на 6 минут</button>
+  </div>
+  <article class="prose">
+    <h2>Самомассаж перед гимнастикой</h2>
+    <p class="lead">Все движения лёгкие, поглаживающие и безболезненные. Без растирания, сдвигания кожи и надавливания. Чистыми руками, перед зеркалом, подушечками пальцев — от центра лица к периферии и вниз.</p>
+    <h3>Область глаз</h3>
+    <p>Поглаживайте по кругу: от внутреннего угла глаза по верхнему веку к наружному углу, затем по нижнему веку обратно. Очень нежно, не растягивая кожу век. 3–4 раза.</p>
+    <h3>Щёки</h3>
+    <p>Тремя пальцами — указательным, средним и безымянным — по трём линиям: от крыльев носа к верхней части уха, от уголков рта к середине уха, от центра подбородка к мочке уха. Каждое движение завершайте поглаживанием вниз по боковой поверхности шеи. 5–6 раз.</p>
+    <h3>Пальцевый душ</h3>
+    <p>Лёгкие, очень мягкие похлопывания подушечками пальцев по поражённой стороне — от центра к периферии.</p>
+    <h3>Если здоровая сторона перетягивает</h3>
+    <p>Её, наоборот, расслабляйте чуть более глубокими поглаживаниями, а во время гимнастики придерживайте ладонью.</p>
+  </article>
+  <div class="actions sticky">
+    <button class="secondary" id="massage-done">Готово</button>
+  </div>
+</section>
+
+<!-- КАМЕРА И ЗАНЯТИЕ -->
+<section class="screen stage" id="stage">
+  <div class="mirror">
+    <video id="video" playsinline muted autoplay></video>
+    <canvas id="overlay"></canvas>
+    <div class="glow glow-a" id="bar-a"><i></i></div>
+    <div class="glow glow-h" id="bar-h"><i></i></div>
+  </div>
+
+  <div class="stage-top">
+    <div>
+      <p class="ex-name" id="ex-name"></p>
+      <p class="ex-count" id="ex-count"></p>
+    </div>
+    <div class="stage-buttons">
+      <button class="chip" id="btn-pause" hidden>Пауза</button>
+      <button class="chip" id="btn-end">Завершить</button>
+    </div>
+  </div>
+  <p class="issue" id="issue" hidden></p>
+
+  <!-- подготовка -->
+  <div class="sheet" id="sheet-setup">
+    <p class="sheet-title" id="setup-title">Включаю камеру…</p>
+    <p class="sheet-text" id="setup-text">Поставьте телефон на подставку на уровне глаз, примерно в 40 см от лица. Лицо — прямо к камере, свет — спереди.</p>
+    <ul class="checks" id="setup-checks" hidden>
+      <li id="chk-face">Лицо в кадре</li>
+      <li id="chk-straight">Смотрите прямо</li>
+      <li id="chk-light">Достаточно света</li>
+    </ul>
+    <div class="sheet-actions" id="setup-actions"></div>
+  </div>
+
+  <!-- описание упражнения -->
+  <div class="sheet" id="sheet-intro" hidden>
+    <p class="sheet-kicker" id="intro-region"></p>
+    <p class="sheet-title" id="intro-title"></p>
+    <div class="sheet-text" id="intro-text"></div>
+    <label class="toggle" id="intro-hand-wrap"><input type="checkbox" id="intro-hand"> <span>Помогаю себе пальцами</span></label>
+    <div class="sheet-actions">
+      <button class="primary" id="intro-start">Начать</button>
+      <button class="secondary" id="intro-skip">Пропустить</button>
+    </div>
+  </div>
+
+  <!-- выполнение -->
+  <div class="cuebox" id="cuebox" hidden>
+    <p class="cue" id="cue"></p>
+    <p class="cue-hint" id="cue-hint"></p>
+    <div class="phase-line"><i id="phase-fill"></i></div>
+  </div>
+
+  <!-- итог упражнения -->
+  <div class="sheet" id="sheet-result" hidden>
+    <p class="sheet-title" id="result-title"></p>
+    <div class="sheet-text" id="result-text"></div>
+    <div class="sheet-actions">
+      <button class="primary" id="result-next">Дальше</button>
+    </div>
+  </div>
+
+  <!-- пауза -->
+  <div class="sheet" id="sheet-pause" hidden>
+    <p class="sheet-title">Пауза</p>
+    <p class="sheet-text">Повтор начнётся заново, когда продолжите.</p>
+    <div class="sheet-actions">
+      <button class="primary" id="pause-resume">Продолжить</button>
+      <button class="secondary" id="pause-skip">Следующее упражнение</button>
+    </div>
+  </div>
+</section>
+
+<!-- ИТОГ ЗАНЯТИЯ -->
+<section class="screen scroll" id="summary">
+  <div class="stack">
+    <h2 id="sum-title">Занятие завершено</h2>
+    <p class="muted" id="sum-meta"></p>
+    <div id="sum-note" class="banner" hidden></div>
+  </div>
+  <ol class="results" id="sum-list"></ol>
+  <div class="stack" id="sum-feel">
+    <p class="lead">Как лицо после занятия?</p>
+    <div class="choice" role="group">
+      <button class="secondary" data-feel="good">Хорошо</button>
+      <button class="secondary" data-feel="tired">Устало</button>
+      <button class="secondary" data-feel="twitch">Подёргивания</button>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="primary" id="sum-save">Готово</button>
+    <button class="secondary" id="sum-copy">Скопировать отчёт</button>
+  </div>
+</section>
+
+<!-- ИСТОРИЯ -->
+<section class="screen scroll" id="history">
+  <header class="topline"><button class="link" data-go="home">Назад</button></header>
+  <div class="stack">
+    <h2>История</h2>
+    <p class="muted" id="hist-explain">Линия показывает, насколько движение поражённой стороны близко к здоровой (медиана по упражнениям). Точки — доля повторов, в которых камера увидела движение.</p>
+    <div id="hist-chart" class="chart"></div>
+  </div>
+  <div id="hist-list" class="hist-list"></div>
+  <div class="actions">
+    <button class="secondary" id="hist-dashboard" hidden>Дашборд занятий</button>
+    <button class="secondary" id="hist-copy">Скопировать отчёт за 7 дней</button>
+  </div>
+</section>
+
+<!-- НАСТРОЙКИ -->
+<section class="screen scroll" id="settings">
+  <header class="topline"><button class="link" data-go="home">Готово</button></header>
+  <div class="stack form">
+    <h2>Настройки</h2>
+
+    <fieldset>
+      <legend>Поражённая сторона лица</legend>
+      <div class="seg">
+        <label><input type="radio" name="affected" value="r"><span>Правая</span></label>
+        <label><input type="radio" name="affected" value="l"><span>Левая</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Повторов в упражнении</legend>
+      <div class="seg">
+        <label><input type="radio" name="reps" value="4"><span>4</span></label>
+        <label><input type="radio" name="reps" value="5"><span>5</span></label>
+        <label><input type="radio" name="reps" value="6"><span>6</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Темп</legend>
+      <div class="seg">
+        <label><input type="radio" name="tempo" value="gentle"><span>Размеренный</span></label>
+        <label><input type="radio" name="tempo" value="slow"><span>Медленный</span></label>
+        <label><input type="radio" name="tempo" value="slower"><span>Очень медленный</span></label>
+      </div>
+      <p class="muted small" id="tempo-hint"></p>
+    </fieldset>
+
+    <label class="toggle"><input type="checkbox" id="set-voice"> <span>Голосовые подсказки</span></label>
+
+    <fieldset>
+      <legend>Упражнения в занятии</legend>
+      <div id="set-exercises" class="checklist"></div>
+      <p class="muted small">Если реабилитолог изменит программу, отключите лишнее здесь.</p>
+    </fieldset>
+
+    <fieldset id="sync-box">
+      <legend>Резервная копия на Raspberry Pi</legend>
+      <p class="sync-status" id="sync-status">Не настроено. История хранится только на этом телефоне.</p>
+      <div id="sync-setup" class="stack">
+        <textarea id="sync-code" rows="3" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="mimika-sync|https://…|ключ"></textarea>
+        <div class="row">
+          <button class="secondary" id="sync-paste">Вставить</button>
+          <button class="primary" id="sync-connect">Подключить</button>
+        </div>
+        <p class="muted small">Код настройки выдаёт установщик на Raspberry Pi. На iPhone должен быть включён Tailscale.</p>
+      </div>
+      <div id="sync-actions" class="stack" hidden>
+        <div class="row">
+          <button class="secondary" id="sync-now">Синхронизировать</button>
+          <button class="secondary" id="sync-restore">Восстановить</button>
+        </div>
+        <button class="secondary" id="sync-dashboard">Открыть дашборд занятий</button>
+        <button class="link" id="sync-forget">Отключить резервную копию</button>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Данные</legend>
+      <div class="row">
+        <button class="secondary" id="set-export">Экспорт данных</button>
+        <button class="secondary danger" id="set-clear">Удалить всё</button>
+      </div>
+      <label class="toggle"><input type="checkbox" id="set-swap"> <span>Точки на лице легли не на ту сторону</span></label>
+    </fieldset>
+
+    <p class="fineprint">Мимика помогает выполнять упражнения из вашей памятки и видеть изменения. Это не медицинское изделие: она не ставит диагноз и не заменяет врача или реабилитолога.</p>
+  </div>
+</section>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
