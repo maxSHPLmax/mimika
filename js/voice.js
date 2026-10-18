@@ -1,11 +1,17 @@
 // Голосовые подсказки. На iPhone синтез речи нужно «разбудить» касанием пользователя.
+import { speechLang } from './i18n.js';
+
 let enabled = true;
 let voice = null;
 
 function pickVoice() {
   if (!('speechSynthesis' in window)) return;
   const all = speechSynthesis.getVoices();
-  voice = all.find((v) => v.lang === 'ru-RU' && /Milena|Милена/i.test(v.name)) || all.find((v) => v.lang && v.lang.startsWith('ru')) || null;
+  const lang = speechLang();                       // 'ru-RU' | 'pl-PL'
+  const prefix = lang.slice(0, 2);
+  const preferred = prefix === 'pl' ? /Zosia/i : /Milena|Милена/i; // стандартные голоса iOS
+  const same = (v) => v.lang && v.lang.replace('_', '-').toLowerCase().startsWith(prefix);
+  voice = all.find((v) => same(v) && preferred.test(v.name)) || all.find(same) || null;
 }
 
 export function initVoice(on) {
@@ -29,7 +35,7 @@ export function say(text, { interrupt = true } = {}) {
   if (!enabled || !('speechSynthesis' in window) || !text) return;
   if (interrupt) speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'ru-RU';
+  u.lang = speechLang();
   if (voice) u.voice = voice;
   u.rate = 0.95;
   speechSynthesis.speak(u);

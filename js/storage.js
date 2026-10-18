@@ -4,6 +4,7 @@ import { EXERCISES } from './exercises.js';
 const K = { settings: 'mimika.settings.v1', sessions: 'mimika.sessions.v1', notes: 'mimika.notes.v1' };
 
 export const DEFAULT_SETTINGS = {
+  lang: 'ru',           // язык интерфейса: 'ru' | 'pl'
   affected: 'r',        // поражённая сторона: 'r' — правая, 'l' — левая
   swapSides: false,     // на случай, если точки легли не на ту сторону
   sideConfirmed: false,

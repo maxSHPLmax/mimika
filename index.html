@@ -235,6 +235,14 @@
   <div class="stack form">
     <h2>Настройки</h2>
 
+    <fieldset data-no-i18n>
+      <legend>Язык · Język</legend>
+      <div class="seg">
+        <label><input type="radio" name="lang" value="ru"><span>Русский</span></label>
+        <label><input type="radio" name="lang" value="pl"><span>Polski</span></label>
+      </div>
+    </fieldset>
+
     <fieldset>
       <legend>Поражённая сторона лица</legend>
       <div class="seg">
@@ -279,7 +287,7 @@
           <button class="secondary" id="sync-paste">Вставить</button>
           <button class="primary" id="sync-connect">Подключить</button>
         </div>
-        <p class="muted small">Код настройки выдаёт установщик на Raspberry Pi. На iPhone должен быть включён Tailscale.</p>
+        <p class="muted small">Код настройки выдаёт установщик на Raspberry Pi.</p>
       </div>
       <div id="sync-actions" class="stack" hidden>
         <div class="row">

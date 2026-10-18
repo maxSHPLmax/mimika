@@ -2,6 +2,7 @@
 import { median, robustStd, FACE_WIDTH_MM } from './geometry.js';
 import { project, apOf } from './features.js';
 import { side } from './exercises.js';
+import { t } from './i18n.js';
 
 // Минимальный порог движения: ~0,6 мм смещения или 8% закрытия глаза.
 export const FLOOR = { disp: 0.004, aperture: 0.08 };
@@ -146,25 +147,25 @@ export function summarizeExercise(ex, reps, affected, assisted) {
 // Короткий человеческий комментарий к упражнению.
 export function feedbackLines(sum, affected) {
   const lines = [];
-  if (sum.kind === 'guided') { lines.push('Выполнено.'); return lines; }
+  if (sum.kind === 'guided') { lines.push(t('Выполнено.')); return lines; }
   if (!sum.validReps) {
-    lines.push('Камера не смогла оценить это упражнение — лицо было плохо видно. Ничего страшного, само упражнение засчитано.');
+    lines.push(t('Камера не смогла оценить это упражнение — лицо было плохо видно. Ничего страшного, само упражнение засчитано.'));
     return lines;
   }
   const A = side.gen(affected);
   if (sum.movedA > 0) {
-    lines.push(`На ${A} стороне есть движение в ${sum.movedA} из ${sum.aTotal} повторов.`);
-    if (sum.ratio != null && !sum.lowConfidence) lines.push(`Это примерно ${Math.round(sum.ratio * 100)}% от движения здоровой стороны.`);
+    lines.push(t('На {side} стороне есть движение в {m} из {n} повторов.', { side: A, m: sum.movedA, n: sum.aTotal }));
+    if (sum.ratio != null && !sum.lowConfidence) lines.push(t('Это примерно {p}% от движения здоровой стороны.', { p: Math.round(sum.ratio * 100) }));
   } else {
-    lines.push(`Движение на ${A} стороне камера пока не видит. На этом этапе это нормально: главное — спокойно посылать импульс в мышцу.`);
+    lines.push(t('Движение на {side} стороне камера пока не видит. На этом этапе это нормально: главное — спокойно посылать импульс в мышцу.', { side: A }));
   }
   if (sum.kind === 'aperture' && sum.closeA != null && sum.id === 'eye_close') {
-    lines.push(`Глаз на ${A} стороне закрывается примерно на ${sum.closeA}%.`);
+    lines.push(t('Глаз на {side} стороне закрывается примерно на {p}%.', { side: A, p: sum.closeA }));
   }
-  if (sum.lowConfidence) lines.push('Для этого упражнения камера различает стороны неточно — лучше ориентироваться на зеркало.');
-  if (sum.assisted) lines.push('Отмечено: с помощью пальцев.');
-  if (sum.fatigue) lines.push('К концу движения стали слабее — мышцы устали. Так и должно быть, не форсируйте.');
-  if (sum.syn) lines.push('Заметно прищуривание глаза во время движения рта. Стоит показать это реабилитологу.');
+  if (sum.lowConfidence) lines.push(t('Для этого упражнения камера различает стороны неточно — лучше ориентироваться на зеркало.'));
+  if (sum.assisted) lines.push(t('Отмечено: с помощью пальцев.'));
+  if (sum.fatigue) lines.push(t('К концу движения стали слабее — мышцы устали. Так и должно быть, не форсируйте.'));
+  if (sum.syn) lines.push(t('Заметно прищуривание глаза во время движения рта. Стоит показать это реабилитологу.'));
   return lines;
 }
 

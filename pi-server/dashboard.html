@@ -23,6 +23,7 @@
   .sub, .muted { color: var(--muted); }
   .small { font-size: 14px; }
   button { font: inherit; color: inherit; cursor: pointer; }
+  .hbtns { display: flex; gap: 8px; }
   .ghost { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 8px 14px; font-size: 15px; white-space: nowrap; }
 
   .kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
@@ -89,12 +90,15 @@
       <h1>Как идут занятия</h1>
       <p class="sub" id="subtitle">Загружаю…</p>
     </div>
-    <button class="ghost" id="refresh" hidden>Обновить</button>
+    <div class="hbtns">
+      <button class="ghost" id="refresh" hidden>Обновить</button>
+      <button class="ghost" id="lang" data-no-i18n aria-label="Język / Язык">PL</button>
+    </div>
   </header>
 
   <section class="gate" id="gate" hidden>
     <h2 id="gate-title">Нужен ключ доступа</h2>
-    <p id="gate-text">Откройте эту страницу из приложения Мимика: Настройки → Резервная копия → «Открыть дашборд». Или по ссылке с ключом, которую выдал установщик на Raspberry Pi.</p>
+    <p id="gate-text">Откройте эту страницу из приложения Мимика: Настройки → Резервная копия → «Открыть дашборд занятий». Или по ссылке с ключом, которую выдал установщик на Raspberry Pi.</p>
   </section>
 
   <div id="content" hidden>
@@ -161,9 +165,111 @@
   const GOAL_SESSIONS = 2;           // из памятки: 2–3 занятия в день
   const GOAL_MINUTES = 20;
 
+  // Язык: из #…&l=pl (приложение передаёт свой язык), иначе из памяти браузера, иначе по языку системы.
+  const LKEY = 'mimika.dashboard.lang';
+  const lm = location.hash.match(/[#&]l=(ru|pl)\b/);
+  let LANG = lm ? lm[1] : null;
+  try { if (LANG) localStorage.setItem(LKEY, LANG); else LANG = localStorage.getItem(LKEY); } catch {}
+  if (LANG !== 'ru' && LANG !== 'pl') LANG = (navigator.language || '').toLowerCase().startsWith('pl') ? 'pl' : 'ru';
+  document.documentElement.lang = LANG;
+  const LOCALE = LANG === 'pl' ? 'pl-PL' : 'ru-RU';
+
+  const PL = {
+    'Мимика — занятия': 'Mimika — ćwiczenia',
+    'Мимика': 'Mimika',
+    'Как идут занятия': 'Jak idą ćwiczenia',
+    'Загружаю…': 'Ładuję…',
+    'Обновить': 'Odśwież',
+    'Нужен ключ доступа': 'Potrzebny klucz dostępu',
+    'Откройте эту страницу из приложения Мимика: Настройки → Резервная копия → «Открыть дашборд занятий». Или по ссылке с ключом, которую выдал установщик на Raspberry Pi.':
+      'Otwórz tę stronę z aplikacji Mimika: Ustawienia → Kopia zapasowa → «Otwórz panel ćwiczeń». Albo z linku z kluczem, który wyświetlił instalator na Raspberry Pi.',
+    'Последние 7 дней': 'Ostatnie 7 dni',
+    'Дни с занятиями': 'Dni z ćwiczeniami',
+    'Занятий за неделю': 'Sesje w tygodniu',
+    'Минут за неделю': 'Minuty w tygodniu',
+    'Серия': 'Seria',
+    'Календарь': 'Kalendarz',
+    '1 занятие': '1 sesja',
+    '2': '2',
+    '3 и больше': '3 i więcej',
+    'отдых по памятке': 'odpoczynek wg zaleceń',
+    'без занятий': 'bez ćwiczeń',
+    'Минуты по дням': 'Minuty dziennie',
+    'Последние 14 дней. Пунктир — 20 минут: два коротких занятия.': 'Ostatnie 14 dni. Linia przerywana — 20 minut: dwie krótkie sesje.',
+    'Когда занимается': 'Pora ćwiczeń',
+    'Каждая точка — занятие; чем больше точка, тем дольше. Последние 14 дней.': 'Każda kropka to sesja; im większa kropka, tym dłuższa. Ostatnie 14 dni.',
+    'Упражнения за 14 дней': 'Ćwiczenia z 14 dni',
+    'Сколько раз выполнено из тех, что были в занятиях.': 'Ile razy wykonano spośród tych, które były w sesjach.',
+    'Самочувствие после занятий': 'Samopoczucie po sesjach',
+    'Движение поражённой стороны': 'Ruch strony porażonej',
+    'Медиана по упражнениям, приблизительно. Важен тренд, а не отдельное число.': 'Mediana z ćwiczeń, w przybliżeniu. Liczy się trend, a nie pojedyncza liczba.',
+    'Данные хранятся на домашнем Raspberry Pi. Это не медицинский отчёт.': 'Dane są przechowywane na domowym Raspberry Pi. To nie jest raport medyczny.',
+    'Забыть ключ на этом устройстве': 'Zapomnij klucz na tym urządzeniu',
+    'хорошо': 'dobrze', 'устало': 'zmęczenie', 'подёргивания': 'drgania',
+    'Сервер недоступен': 'Serwer niedostępny',
+    'Не удалось связаться с Raspberry Pi. Проверьте, что он включён, и обновите страницу.': 'Nie udało się połączyć z Raspberry Pi. Sprawdź, czy jest włączone, i odśwież stronę.',
+    'Ключ не подошёл': 'Klucz nie pasuje',
+    'Возможно, ключ на Raspberry Pi был изменён. Откройте дашборд заново из приложения или по новой ссылке.': 'Możliwe, że klucz na Raspberry Pi został zmieniony. Otwórz panel ponownie z aplikacji albo z nowego linku.',
+    'Ошибка сервера': 'Błąd serwera',
+    'Код ответа: {status}.': 'Kod odpowiedzi: {status}.',
+    'Последнее занятие: {day} в {time}. Цель по памятке — 2–3 коротких занятия в день.': 'Ostatnia sesja: {day} o {time}. Cel według zaleceń — 2–3 krótkie sesje dziennie.',
+    'Пока нет занятий на сервере.': 'Na serwerze nie ma jeszcze sesji.',
+    'Последняя еженедельная проверка: {day}.': 'Ostatnia cotygodniowa kontrola: {day}.',
+    'из {n}': 'z {n}',
+    'ещё {n} {days} отдыха по памятке': '+ {n} {days} odpoczynku wg zaleceń',
+    'с начала занятий': 'od początku ćwiczeń',
+    'за последние 7 дней': 'z ostatnich 7 dni',
+    'цель {a}–{b}': 'cel {a}–{b}',
+    'в среднем {n} мин за занятие': 'średnio {n} min na sesję',
+    'подряд, включая дни отдыха': 'z rzędu, łącznie z dniami odpoczynku',
+    'отдых': 'odpoczynek',
+    'Отдых: были отмечены подёргивания или напряжение, памятка советует перерыв.': 'Odpoczynek: zaznaczono drgania lub napięcie, zalecenia radzą przerwę.',
+    'Сегодня занятий пока не было.': 'Dzisiaj jeszcze nie było ćwiczeń.',
+    'Занятий не было.': 'Nie było ćwiczeń.',
+    '{n} мин': '{n} min',
+    'упражнений {done} из {all}': 'ćwiczenia {done} z {all}',
+    'с самомассажем': 'z automasażem',
+    'после: {feel}': 'po: {feel}',
+    'Пропущено: {list}': 'Pominięte: {list}',
+    'Минуты занятий по дням': 'Minuty ćwiczeń dziennie',
+    'Время занятий': 'Pora ćwiczeń',
+    'За последние 14 дней занятий не было.': 'W ostatnich 14 dniach nie było ćwiczeń.',
+    'Появится после нескольких занятий.': 'Pojawi się po kilku sesjach.',
+    'Тренд движения поражённой стороны': 'Trend ruchu strony porażonej',
+    'Ключ удалён': 'Klucz usunięty',
+    'На этом устройстве ключ больше не хранится.': 'Klucz nie jest już przechowywany na tym urządzeniu.',
+    // названия упражнений (в данных хранятся по-русски)
+    'Подъём бровей': 'Unoszenie brwi', 'Сведение бровей': 'Ściąganie brwi', 'Взгляд вверх и вниз': 'Spojrzenie w górę i w dół',
+    'Мягкое закрывание глаз': 'Delikatne zamykanie oczu', 'Прищуривание по очереди': 'Mrużenie oczu na zmianę', 'Движение носом': 'Ruchy nosem',
+    'Улыбка с закрытым ртом': 'Uśmiech z zamkniętymi ustami', 'Трубочка': 'Dzióbek', 'Перекатывание воздуха': 'Przetaczanie powietrza', 'Гласные звуки': 'Samogłoski',
+  };
+  const t = (key, params) => {
+    let v = LANG === 'pl' && Object.prototype.hasOwnProperty.call(PL, key) ? PL[key] : key;
+    if (params) v = v.replace(/\{(\w+)\}/g, (m0, k) => (k in params ? params[k] : m0));
+    return v;
+  };
+  const norm = (x) => x.replace(/\s+/g, ' ').trim();
+  if (LANG === 'pl') {
+    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const nodes = []; while (w.nextNode()) nodes.push(w.currentNode);
+    for (const n of nodes) {
+      if (n.parentElement.closest('script, style, [data-no-i18n]')) continue;
+      const k = norm(n.nodeValue);
+      if (k && typeof PL[k] === 'string') n.nodeValue = n.nodeValue.replace(/\S[\s\S]*\S|\S/, PL[k]);
+    }
+    for (const el of document.querySelectorAll('[aria-label]:not([data-no-i18n])')) {
+      const k = norm(el.getAttribute('aria-label'));
+      if (typeof PL[k] === 'string') el.setAttribute('aria-label', PL[k]);
+    }
+  }
+  document.title = t('Мимика — занятия');
+  $('lang').textContent = LANG === 'pl' ? 'RU' : 'PL';
+  $('lang').onclick = () => { try { localStorage.setItem(LKEY, LANG === 'pl' ? 'ru' : 'pl'); } catch {} location.reload(); };
+
   // Ключ: из #k=… (один раз), затем из памяти браузера. Из адресной строки убираем.
   const m = location.hash.match(/k=([A-Za-z0-9_-]+)/);
-  if (m) { try { localStorage.setItem(KEY, m[1]); } catch {} history.replaceState(null, '', location.pathname); }
+  if (m) { try { localStorage.setItem(KEY, m[1]); } catch {} }
+  if (location.hash) history.replaceState(null, '', location.pathname);
   let token = null;
   try { token = localStorage.getItem(KEY); } catch {}
 
@@ -171,16 +277,22 @@
   const dayKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
-  const fmtTime = (d) => d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-  const fmtDate = (d, o = { day: 'numeric', month: 'long' }) => d.toLocaleDateString('ru-RU', o);
+  const fmtTime = (d) => d.toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' });
+  const fmtDate = (d, o = { day: 'numeric', month: 'long' }) => d.toLocaleDateString(LOCALE, o);
   const minutes = (sec) => Math.max(1, Math.round((sec || 0) / 60));
   const plural = (n, one, few, many) => {
     const a = Math.abs(n) % 100, b = a % 10;
+    if (LANG === 'pl') {
+      if (n === 1) return one;
+      return b >= 2 && b <= 4 && !(a >= 12 && a <= 14) ? few : many;
+    }
     if (a > 10 && a < 20) return many;
     if (b > 1 && b < 5) return few;
     if (b === 1) return one;
     return many;
   };
+  const daysWord = (n) => (LANG === 'pl' ? plural(n, 'dzień', 'dni', 'dni') : plural(n, 'день', 'дня', 'дней'));
+  const sessWord = (n) => (LANG === 'pl' ? plural(n, 'sesja', 'sesje', 'sesji') : plural(n, 'занятие', 'занятия', 'занятий'));
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const FEEL = { good: 'хорошо', tired: 'устало', twitch: 'подёргивания' };
 
@@ -192,15 +304,15 @@
   }
 
   async function load() {
-    if (!token) return gate('Нужен ключ доступа');
-    $('subtitle').textContent = 'Загружаю…';
+    if (!token) return gate(t('Нужен ключ доступа'));
+    $('subtitle').textContent = t('Загружаю…');
     let res;
     try {
       const base = location.pathname.replace(/dashboard(\.html)?\/?$/, '');   // работает и при монтировании под префиксом
       res = await fetch(`${base}api/export`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
-    } catch { return gate('Сервер недоступен', 'Не удалось связаться с Raspberry Pi. Проверьте, что он включён, и обновите страницу.'); }
-    if (res.status === 401) return gate('Ключ не подошёл', 'Возможно, ключ на Raspberry Pi был изменён. Откройте дашборд заново из приложения или по новой ссылке.');
-    if (!res.ok) return gate('Ошибка сервера', `Код ответа: ${res.status}.`);
+    } catch { return gate(t('Сервер недоступен'), t('Не удалось связаться с Raspberry Pi. Проверьте, что он включён, и обновите страницу.')); }
+    if (res.status === 401) return gate(t('Ключ не подошёл'), t('Возможно, ключ на Raspberry Pi был изменён. Откройте дашборд заново из приложения или по новой ссылке.'));
+    if (!res.ok) return gate(t('Ошибка сервера'), t('Код ответа: {status}.', { status: res.status }));
     const data = await res.json();
     render(data);
   }
@@ -245,10 +357,10 @@
     $('gate').hidden = true; $('content').hidden = false; $('refresh').hidden = false; $('forget').hidden = false;
     const last = M.sessions[M.sessions.length - 1];
     $('subtitle').textContent = M.sessions.length
-      ? `Последнее занятие: ${fmtDate(last.start)} в ${fmtTime(last.start)}. Цель по памятке — 2–3 коротких занятия в день.`
-      : 'Пока нет занятий на сервере.';
+      ? t('Последнее занятие: {day} в {time}. Цель по памятке — 2–3 коротких занятия в день.', { day: fmtDate(last.start), time: fmtTime(last.start) })
+      : t('Пока нет занятий на сервере.');
     const lc = M.checkins[M.checkins.length - 1];
-    if (lc) $('subtitle').textContent += ` Последняя еженедельная проверка: ${fmtDate(new Date(lc.startedAt))}.`;
+    if (lc) $('subtitle').textContent += ` ${t('Последняя еженедельная проверка: {day}.', { day: fmtDate(new Date(lc.startedAt)) })}`;
 
     renderKpis(M);
     renderCalendar(M);
@@ -273,20 +385,20 @@
     const sess = week.flatMap((d) => M.byDay.get(dayKey(d)) || []);
     const mins = sess.reduce((a, s) => a + minutes(s.durationSec), 0);
 
-    $('k-days').innerHTML = `${withS}<small> из ${counted}</small>`;
-    $('k-days-note').textContent = restDays ? `ещё ${restDays} ${plural(restDays, 'день', 'дня', 'дней')} отдыха по памятке` : (counted < 7 ? `с начала занятий` : 'за последние 7 дней');
+    $('k-days').innerHTML = `${withS}<small> ${esc(t('из {n}', { n: counted }))}</small>`;
+    $('k-days-note').textContent = restDays ? t('ещё {n} {days} отдыха по памятке', { n: restDays, days: daysWord(restDays) }) : t(counted < 7 ? 'с начала занятий' : 'за последние 7 дней');
     $('k-sessions').textContent = sess.length;
-    $('k-sessions-note').textContent = `цель ${GOAL_SESSIONS * counted}–${3 * counted}`;
+    $('k-sessions-note').textContent = t('цель {a}–{b}', { a: GOAL_SESSIONS * counted, b: 3 * counted });
     $('k-minutes').textContent = mins;
-    $('k-minutes-note').textContent = sess.length ? `в среднем ${Math.round(mins / sess.length)} мин за занятие` : '—';
+    $('k-minutes-note').textContent = sess.length ? t('в среднем {n} мин за занятие', { n: Math.round(mins / sess.length) }) : '—';
 
     // Серия: подряд дни с занятиями или с отдыхом по памятке. Сегодня ещё не закончилось — не обрываем серию.
     let d = M.today, streak = 0;
     const st = (x) => M.status(x);
     if (st(d) === 'pending') d = addDays(d, -1);
     while (d >= M.first && ['s1', 's2', 's3', 'rest'].includes(st(d))) { streak++; d = addDays(d, -1); }
-    $('k-streak').innerHTML = `${streak}<small> ${plural(streak, 'день', 'дня', 'дней')}</small>`;
-    $('k-streak-note').textContent = 'подряд, включая дни отдыха';
+    $('k-streak').innerHTML = `${streak}<small> ${daysWord(streak)}</small>`;
+    $('k-streak-note').textContent = t('подряд, включая дни отдыха');
   }
 
   let selected = null;
@@ -294,12 +406,12 @@
     // 5 недель, по понедельникам, заканчивая текущей неделей
     const dow = (M.today.getDay() + 6) % 7;
     const start = addDays(M.today, -dow - 28);
-    const names = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+    const names = LANG === 'pl' ? ['Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So', 'Nd'] : ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
     let html = names.map((n) => `<div class="dow">${n}</div>`).join('');
     for (let i = 0; i < 35; i++) {
       const d = addDays(start, i), k = dayKey(d), cls = M.status(d);
       const n = (M.byDay.get(k) || []).length;
-      const label = `${fmtDate(d)}: ${n ? `${n} ${plural(n, 'занятие', 'занятия', 'занятий')}` : cls === 'rest' ? 'отдых' : 'без занятий'}`;
+      const label = `${fmtDate(d)}: ${n ? `${n} ${sessWord(n)}` : t(cls === 'rest' ? 'отдых' : 'без занятий')}`;
       html += `<button class="day ${cls}${+d === +M.today ? ' today' : ''}" data-k="${k}" aria-label="${esc(label)}">${d.getDate()}</button>`;
     }
     $('cal').innerHTML = html;
@@ -316,18 +428,19 @@
     const title = fmtDate(d, { weekday: 'long', day: 'numeric', month: 'long' });
     let body;
     if (!list.length) {
-      body = M.rest.has(k) ? '<p class="muted">Отдых: были отмечены подёргивания или напряжение, памятка советует перерыв.</p>'
-        : +d === +M.today ? '<p class="muted">Сегодня занятий пока не было.</p>'
-        : d < M.first || d > M.today ? '<p class="muted">—</p>' : '<p class="muted">Занятий не было.</p>';
+      const msg = M.rest.has(k) ? t('Отдых: были отмечены подёргивания или напряжение, памятка советует перерыв.')
+        : +d === +M.today ? t('Сегодня занятий пока не было.')
+        : d < M.first || d > M.today ? '—' : t('Занятий не было.');
+      body = `<p class="muted">${esc(msg)}</p>`;
     } else {
       body = list.map((s) => {
         const ex = s.exercises || [];
         const done = ex.filter((e) => !e.skipped).length;
-        const skipped = ex.filter((e) => e.skipped).map((e) => e.title);
-        const parts = [`${minutes(s.durationSec)} мин`, `упражнений ${done} из ${ex.length}`];
-        if (s.checkin?.massage) parts.push('с самомассажем');
-        if (s.after) parts.push(`после: ${FEEL[s.after] || s.after}`);
-        return `<div class="sess"><span class="t">${fmtTime(s.start)}</span> — ${esc(parts.join(', '))}${skipped.length ? `<div class="muted small">Пропущено: ${esc(skipped.join(', '))}</div>` : ''}</div>`;
+        const skipped = ex.filter((e) => e.skipped).map((e) => t(e.title));
+        const parts = [t('{n} мин', { n: minutes(s.durationSec) }), t('упражнений {done} из {all}', { done, all: ex.length })];
+        if (s.checkin?.massage) parts.push(t('с самомассажем'));
+        if (s.after) parts.push(t('после: {feel}', { feel: FEEL[s.after] ? t(FEEL[s.after]) : s.after }));
+        return `<div class="sess"><span class="t">${fmtTime(s.start)}</span> — ${esc(parts.join(', '))}${skipped.length ? `<div class="muted small">${esc(t('Пропущено: {list}', { list: skipped.join(', ') }))}</div>` : ''}</div>`;
       }).join('');
     }
     $('daydetail').innerHTML = `<h3>${esc(title[0].toUpperCase() + title.slice(1))}</h3>${body}`;
@@ -340,14 +453,14 @@
     const max = Math.max(45, ...vals);
     const bw = (W - L - R) / days.length;
     const y = (v) => T + (1 - v / max) * (H - T - B);
-    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Минуты занятий по дням">`;
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${t('Минуты занятий по дням')}">`;
     for (const v of [0, 20, 40].filter((v) => v <= max)) svg += `<text x="${L - 6}" y="${y(v) + 4}" font-size="11" text-anchor="end" fill="#5B6C75">${v}</text>`;
     days.forEach((d, i) => {
       const v = vals[i], x = L + i * bw + 3, h = (H - T - B) * (v / max);
       const st = M.status(d);
       const fill = v ? (v >= GOAL_MINUTES ? '#E49A2E' : '#F0BD6E') : 'none';
-      if (v) svg += `<rect x="${x}" y="${y(v)}" width="${bw - 6}" height="${h}" rx="4" fill="${fill}"><title>${fmtDate(d)}: ${v} мин</title></rect>`;
-      else if (st === 'rest') svg += `<rect x="${x}" y="${y(0) - 6}" width="${bw - 6}" height="6" rx="3" fill="#3E8A5E" opacity=".7"><title>${fmtDate(d)}: отдых</title></rect>`;
+      if (v) svg += `<rect x="${x}" y="${y(v)}" width="${bw - 6}" height="${h}" rx="4" fill="${fill}"><title>${fmtDate(d)}: ${t('{n} мин', { n: v })}</title></rect>`;
+      else if (st === 'rest') svg += `<rect x="${x}" y="${y(0) - 6}" width="${bw - 6}" height="6" rx="3" fill="#3E8A5E" opacity=".7"><title>${fmtDate(d)}: ${t('отдых')}</title></rect>`;
       if (i % 2 === (days.length - 1) % 2) svg += `<text x="${x + (bw - 6) / 2}" y="${H - 8}" font-size="11" text-anchor="middle" fill="#5B6C75">${d.getDate()}</text>`;
     });
     svg += `<line x1="${L}" x2="${W - R}" y1="${y(GOAL_MINUTES)}" y2="${y(GOAL_MINUTES)}" stroke="#1E2B33" stroke-dasharray="4 4" stroke-width="1" opacity=".5"/>`;
@@ -361,7 +474,7 @@
     const W = Math.max(300, Math.round($('schedule').clientWidth || 360)), rowH = 24, T = 22, L = 58, R = 14, H = T + days.length * rowH + 6;
     const h0 = 6, h1 = 24;
     const x = (h) => L + ((h - h0) / (h1 - h0)) * (W - L - R);
-    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Время занятий">`;
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${t('Время занятий')}">`;
     const step = W < 480 ? 6 : 3;
     for (let h = h0; h <= h1; h += step) {
       svg += `<line x1="${x(h)}" x2="${x(h)}" y1="${T - 6}" y2="${H}" stroke="#C9D4D8" stroke-width="1"/>`;
@@ -371,11 +484,11 @@
       const cy = T + i * rowH + rowH / 2;
       const st = M.status(d);
       svg += `<text x="${L - 10}" y="${cy + 4}" font-size="12" text-anchor="end" fill="${st === 'rest' ? '#3E8A5E' : '#5B6C75'}">${fmtDate(d, { day: 'numeric', month: 'short' })}</text>`;
-      if (st === 'rest') svg += `<text x="${x(h0) + 6}" y="${cy + 4}" font-size="11" fill="#3E8A5E">отдых</text>`;
+      if (st === 'rest') svg += `<text x="${x(h0) + 6}" y="${cy + 4}" font-size="11" fill="#3E8A5E">${t('отдых')}</text>`;
       for (const s of M.byDay.get(dayKey(d)) || []) {
         const h = s.start.getHours() + s.start.getMinutes() / 60;
         const r = Math.min(10, 4 + minutes(s.durationSec) / 3);
-        svg += `<circle cx="${x(Math.min(h1, Math.max(h0, h)))}" cy="${cy}" r="${r}" fill="#E49A2E" opacity=".85"><title>${fmtDate(d)} ${fmtTime(s.start)}, ${minutes(s.durationSec)} мин</title></circle>`;
+        svg += `<circle cx="${x(Math.min(h1, Math.max(h0, h)))}" cy="${cy}" r="${r}" fill="#E49A2E" opacity=".85"><title>${fmtDate(d)} ${fmtTime(s.start)}, ${t('{n} мин', { n: minutes(s.durationSec) })}</title></circle>`;
       }
     });
     $('schedule').innerHTML = svg + '</svg>';
@@ -394,26 +507,26 @@
     }
     const rows = [...stats.values()];
     $('exbars').innerHTML = rows.length ? rows.map((r) => `
-      <div class="row"><span>${esc(r.title)}</span>
+      <div class="row"><span>${esc(t(r.title))}</span>
         <div class="track"><div class="fill" style="width:${(100 * r.done / r.planned).toFixed(0)}%"></div></div>
         <span class="num">${r.done}/${r.planned}</span></div>`).join('')
-      : '<p class="muted">За последние 14 дней занятий не было.</p>';
+      : `<p class="muted">${t('За последние 14 дней занятий не было.')}</p>`;
   }
 
   function renderFeel(M) {
     const since = addDays(M.today, -13);
     const c = { good: 0, tired: 0, twitch: 0 };
     for (const s of M.sessions) if (s.start >= since && c[s.after] != null) c[s.after]++;
-    $('feel').innerHTML = Object.entries(c).map(([k, v]) => `<div><b>${v}</b><span class="small muted">${FEEL[k]}</span></div>`).join('');
+    $('feel').innerHTML = Object.entries(c).map(([k, v]) => `<div><b>${v}</b><span class="small muted">${t(FEEL[k])}</span></div>`).join('');
   }
 
   function renderTrend(M) {
     const pts = M.sessions.filter((s) => s.index != null).slice(-30);
-    if (pts.length < 2) { $('trend').innerHTML = '<p class="muted small">Появится после нескольких занятий.</p>'; return; }
+    if (pts.length < 2) { $('trend').innerHTML = `<p class="muted small">${t('Появится после нескольких занятий.')}</p>`; return; }
     const W = 420, H = 130, L = 34, R = 8, T = 8, B = 20;
     const x = (i) => L + (i * (W - L - R)) / (pts.length - 1);
     const y = (v) => T + (1 - Math.min(1, v)) * (H - T - B);
-    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Тренд движения поражённой стороны">`;
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${t('Тренд движения поражённой стороны')}">`;
     for (const v of [0, 0.5, 1]) svg += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="#C9D4D8"/><text x="${L - 6}" y="${y(v) + 4}" font-size="11" text-anchor="end" fill="#5B6C75">${v * 100}%</text>`;
     svg += `<polyline points="${pts.map((s, i) => `${x(i)},${y(s.index)}`).join(' ')}" fill="none" stroke="#1E2B33" stroke-width="2" stroke-linejoin="round"/>`;
     svg += `<text x="${L}" y="${H - 4}" font-size="11" fill="#5B6C75">${fmtDate(pts[0].start, { day: 'numeric', month: 'short' })}</text>`;
@@ -424,7 +537,7 @@
   let rt = 0;
   window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => lastData && renderSchedule(model(lastData)), 200); });
   $('refresh').onclick = load;
-  $('forget').onclick = () => { try { localStorage.removeItem(KEY); } catch {} token = null; gate('Ключ удалён', 'На этом устройстве ключ больше не хранится.'); };
+  $('forget').onclick = () => { try { localStorage.removeItem(KEY); } catch {} token = null; gate(t('Ключ удалён'), t('На этом устройстве ключ больше не хранится.')); };
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && token) load(); });
   load();
 })();

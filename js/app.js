@@ -10,6 +10,7 @@ import * as sync from './sync.js';
 import * as photos from './photos.js';
 import { POSES, REST_POSE, CHECKIN_TIMING, plansFor, summarizePose, isCheckin, checkinDue, qualityFlags } from './checkin.js';
 import { dist, FACE_EDGE } from './geometry.js';
+import { t, setLang, getLang, locale, translateDom } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
 const other = (s) => (s === 'r' ? 'l' : 'r');
@@ -20,6 +21,9 @@ let baselineT0 = 0;
 let baselineFaceFrac = null;
 
 let settings = store.loadSettings();
+setLang(settings.lang);
+translateDom(document.body);
+document.title = t('Мимика — гимнастика для лица');
 voice.initVoice(settings.voice);
 
 // Сторона в терминах точек MediaPipe (обычно совпадает с анатомической).
@@ -46,44 +50,46 @@ document.addEventListener('click', (e) => {
 
 let toastTimer = 0;
 function toast(text, ms = 3500) {
-  const t = $('toast');
-  t.textContent = text; t.hidden = false;
+  const el = $('toast');
+  el.textContent = text; el.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (t.hidden = true), ms);
+  toastTimer = setTimeout(() => (el.hidden = true), ms);
 }
 
 // ——— Главная ———
-function fmtTime(d) { return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }); }
+function fmtTime(d) { return d.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }); }
 function fmtDay(d) {
   const today = new Date(); const y = new Date(Date.now() - 864e5);
-  if (d.toDateString() === today.toDateString()) return 'сегодня';
-  if (d.toDateString() === y.toDateString()) return 'вчера';
-  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+  if (d.toDateString() === today.toDateString()) return t('сегодня');
+  if (d.toDateString() === y.toDateString()) return t('вчера');
+  return d.toLocaleDateString(locale(), { day: 'numeric', month: 'long' });
 }
 function minutes(sec) { return Math.max(1, Math.round(sec / 60)); }
+// Числа по правилам языка: 1,3 (а не 1.3).
+const num = (x) => (x == null ? x : Number(x).toLocaleString(locale(), { maximumFractionDigits: 1 }));
 
 function renderHome() {
   const h = new Date().getHours();
-  $('greeting').textContent = h < 5 ? 'Доброй ночи' : h < 12 ? 'Доброе утро' : h < 18 ? 'Добрый день' : 'Добрый вечер';
+  $('greeting').textContent = t(h < 5 ? 'Доброй ночи' : h < 12 ? 'Доброе утро' : h < 18 ? 'Добрый день' : 'Добрый вечер');
   const everything = store.loadSessions();
   const all = everything.filter((s) => s.completed && !isCheckin(s));
   const today = store.sessionsToday(all).length;
   $('checkin-due').hidden = !checkinDue(everything);
   const max = settings.maxSessionsPerDay;
   $('today-dots').innerHTML = Array.from({ length: max }, (_, i) => `<i class="${i < today ? 'on' : ''}"></i>`).join('');
-  $('today-text').textContent = today ? `Сегодня ${today} из ${max} занятий` : 'Сегодня занятий ещё не было';
+  $('today-text').textContent = today ? t('Сегодня {n} из {max} занятий', { n: today, max }) : t('Сегодня занятий ещё не было');
   const last = all[all.length - 1];
   $('last-session').textContent = last
-    ? `Последнее занятие: ${fmtDay(new Date(last.startedAt))} в ${fmtTime(new Date(last.startedAt))}, ${minutes(last.durationSec)} мин`
-    : 'Займёт 10–15 минут. Понадобится подставка для телефона и хороший свет.';
+    ? t('Последнее занятие: {day} в {time}, {min} мин', { day: fmtDay(new Date(last.startedAt)), time: fmtTime(new Date(last.startedAt)), min: minutes(last.durationSec) })
+    : t('Займёт 10–15 минут. Понадобится подставка для телефона и хороший свет.');
 
   const banner = $('rest-banner');
   const tw = store.recentTwitch();
   if (tw) {
-    banner.textContent = `Вы отметили подёргивания ${fmtDay(new Date(tw.at))}. Памятка советует перерыв 1–2 дня.`;
+    banner.textContent = t('Вы отметили подёргивания {day}. Памятка советует перерыв 1–2 дня.', { day: fmtDay(new Date(tw.at)) });
     banner.hidden = false;
   } else if (today >= max) {
-    banner.textContent = `Сегодня уже ${today} занятия — этого достаточно. Мышцам тоже нужен отдых.`;
+    banner.textContent = t('Сегодня уже {n} занятия — этого достаточно. Мышцам тоже нужен отдых.', { n: today });
     banner.hidden = false;
   } else banner.hidden = true;
   renderHomeSync();
@@ -96,8 +102,8 @@ function renderHomeSync() {
   const st = sync.status();
   const pending = sync.pendingCount();
   el.hidden = false;
-  if (pending) el.textContent = `Ждут отправки на Raspberry Pi: ${pending}. Отправятся автоматически, когда сервер будет доступен.`;
-  else if (st.lastOk) el.textContent = `Копия на Raspberry Pi: ${fmtDay(new Date(st.lastOk))} в ${fmtTime(new Date(st.lastOk))}.`;
+  if (pending) el.textContent = t('Ждут отправки на Raspberry Pi: {n}. Отправятся автоматически, когда сервер будет доступен.', { n: pending });
+  else if (st.lastOk) el.textContent = t('Копия на Raspberry Pi: {day} в {time}.', { day: fmtDay(new Date(st.lastOk)), time: fmtTime(new Date(st.lastOk)) });
   else el.hidden = true;
 }
 
@@ -124,19 +130,19 @@ $('pm-skip').addEventListener('click', () => { checkin.massage = false; startSta
 
 // ——— Самомассаж ———
 let massageTimer = 0;
-function stopMassageTimer() { clearInterval(massageTimer); massageTimer = 0; $('massage-timer').hidden = true; $('massage-timer-btn').textContent = 'Запустить таймер на 6 минут'; $('massage-timer-btn').className = 'primary'; }
+function stopMassageTimer() { clearInterval(massageTimer); massageTimer = 0; $('massage-timer').hidden = true; $('massage-timer-btn').textContent = t('Запустить таймер на 6 минут'); $('massage-timer-btn').className = 'primary'; }
 $('massage-timer-btn').addEventListener('click', () => {
   if (massageTimer) { stopMassageTimer(); return; }
   voice.unlock();
   const end = Date.now() + 6 * 60 * 1000;
   $('massage-timer').hidden = false;
-  $('massage-timer-btn').textContent = 'Остановить таймер';
+  $('massage-timer-btn').textContent = t('Остановить таймер');
   $('massage-timer-btn').className = 'secondary';
   const tick = () => {
     const left = Math.max(0, end - Date.now());
     const m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
     $('massage-clock').textContent = `${m}:${String(s).padStart(2, '0')}`;
-    if (!left) { stopMassageTimer(); voice.say('Самомассаж окончен'); toast('Самомассаж окончен'); }
+    if (!left) { stopMassageTimer(); voice.say(t('Самомассаж окончен')); toast(t('Самомассаж окончен')); }
   };
   tick();
   massageTimer = setInterval(tick, 500);
@@ -171,11 +177,11 @@ async function startStage(mode = 'session') {
   setSheet('setup');
   $('cuebox').hidden = true;
   $('btn-pause').hidden = true;
-  $('ex-name').textContent = stageMode === 'checkin' ? 'Еженедельная проверка' : 'Подготовка';
+  $('ex-name').textContent = t(stageMode === 'checkin' ? 'Еженедельная проверка' : 'Подготовка');
   $('ex-count').textContent = '';
   $('setup-checks').hidden = true;
-  $('setup-title').textContent = 'Включаю камеру…';
-  $('setup-text').textContent = 'Поставьте телефон на подставку на уровне глаз, примерно в 40 см от лица. Лицо — прямо к камере, свет — спереди.';
+  $('setup-title').textContent = t('Включаю камеру…');
+  $('setup-text').textContent = t('Поставьте телефон на подставку на уровне глаз, примерно в 40 см от лица. Лицо — прямо к камере, свет — спереди.');
   setupActions([]);
   reference = null; baseline = []; okStreak = 0; step = null;
 
@@ -185,21 +191,21 @@ async function startStage(mode = 'session') {
     tracker = new Tracker(video);
     await tracker.startCamera();
   } catch (e) {
-    $('setup-title').textContent = 'Нет доступа к камере';
-    $('setup-text').textContent = 'Разрешите доступ к камере: в Safari нажмите «аА» в адресной строке → «Настройки веб-сайта» → «Камера» → «Разрешить». Для приложения на экране «Домой» — «Настройки» iPhone → «Safari» → «Камера».';
-    setupActions([{ text: 'Попробовать снова', primary: true, onClick: () => startStage(stageMode) }, { text: 'На главную', onClick: leaveStage }]);
+    $('setup-title').textContent = t('Нет доступа к камере');
+    $('setup-text').textContent = t('Разрешите доступ к камере: в Safari нажмите «аА» в адресной строке → «Настройки веб-сайта» → «Камера» → «Разрешить». Для приложения на экране «Домой» — «Настройки» iPhone → «Safari» → «Камера».');
+    setupActions([{ text: t('Попробовать снова'), primary: true, onClick: () => startStage(stageMode) }, { text: t('На главную'), onClick: leaveStage }]);
     return;
   }
-  $('setup-title').textContent = 'Загружаю распознавание лица…';
+  $('setup-title').textContent = t('Загружаю распознавание лица…');
   try {
     await loadLandmarker();
   } catch (e) {
-    $('setup-title').textContent = 'Не удалось загрузить распознавание';
-    $('setup-text').textContent = 'При первом запуске нужен интернет — приложение скачивает модель (около 4 МБ). Потом она работает и без сети.';
-    setupActions([{ text: 'Попробовать снова', primary: true, onClick: () => startStage(stageMode) }, { text: 'На главную', onClick: leaveStage }]);
+    $('setup-title').textContent = t('Не удалось загрузить распознавание');
+    $('setup-text').textContent = t('При первом запуске нужен интернет — приложение скачивает модель (около 4 МБ). Потом она работает и без сети.');
+    setupActions([{ text: t('Попробовать снова'), primary: true, onClick: () => startStage(stageMode) }, { text: t('На главную'), onClick: leaveStage }]);
     return;
   }
-  $('setup-title').textContent = 'Устройтесь поудобнее';
+  $('setup-title').textContent = t('Устройтесь поудобнее');
   $('setup-checks').hidden = false;
   step = 'checks';
   tracker.start(onFrame);
@@ -233,7 +239,7 @@ function onFrame(f) {
   if (window.__mimikaDebug) window.__mimikaDebug = { n: (window.__mimikaDebug.n || 0) + 1, t: f.t, w: f.w, h: f.h, framing, brightness: f.brightness, pts: pts && [pts[234], pts[454], pts[1], pts[133], pts[362]] };
   const el = $('issue');
   el.hidden = !issue || step === null;
-  if (issue) el.textContent = ISSUE_TEXT[issue];
+  if (issue) el.textContent = t(ISSUE_TEXT[issue]);
 
   if (canvas.width !== f.w || canvas.height !== f.h) { canvas.width = f.w; canvas.height = f.h; }
   draw(pts);
@@ -275,20 +281,20 @@ function onFrame(f) {
 // Если кадры перестали приходить (камера «задумалась»), время упражнения всё равно идёт.
 setInterval(() => {
   if (step === 'session' && sess?.runner && performance.now() - lastFrameAt > 400) {
-    const t = performance.now();
-    sess.runner.update(t, { ok: false });
-    updateLive(t);
+    const now = performance.now();
+    sess.runner.update(now, { ok: false });
+    updateLive(now);
   }
 }, 250);
 
 function askSides() {
   step = 'confirm';
   $('setup-checks').hidden = true;
-  $('setup-title').textContent = 'Проверим стороны';
-  $('setup-text').textContent = `Оранжевые точки должны быть на вашей ${side.gen(settings.affected)} стороне лица — там, где слабее движение. Голубые — на здоровой.`;
+  $('setup-title').textContent = t('Проверим стороны');
+  $('setup-text').textContent = t('Оранжевые точки должны быть на вашей {side} стороне лица — там, где слабее движение. Голубые — на здоровой.', { side: side.gen(settings.affected) });
   setupActions([
-    { text: 'Да, верно', primary: true, onClick: () => { settings.sideConfirmed = true; store.saveSettings(settings); startBaseline(); } },
-    { text: 'Нет, на другой стороне', onClick: () => { settings.swapSides = !settings.swapSides; store.saveSettings(settings); toast('Поменяла стороны. Проверьте ещё раз.'); } },
+    { text: t('Да, верно'), primary: true, onClick: () => { settings.sideConfirmed = true; store.saveSettings(settings); startBaseline(); } },
+    { text: t('Нет, на другой стороне'), onClick: () => { settings.swapSides = !settings.swapSides; store.saveSettings(settings); toast(t('Поменяла стороны. Проверьте ещё раз.')); } },
   ]);
 }
 
@@ -297,10 +303,10 @@ function startBaseline() {
   baseline = [];
   baselineT0 = performance.now();
   $('setup-checks').hidden = true;
-  $('setup-title').textContent = 'Запоминаю лицо в покое';
-  $('setup-text').innerHTML = 'Расслабьте лицо и спокойно смотрите в камеру пару секунд.<div class="progress" style="margin-top:14px"><i id="baseline-bar"></i></div>';
+  $('setup-title').textContent = t('Запоминаю лицо в покое');
+  $('setup-text').innerHTML = `${t('Расслабьте лицо и спокойно смотрите в камеру пару секунд.')}<div class="progress" style="margin-top:14px"><i id="baseline-bar"></i></div>`;
   setupActions([]);
-  voice.say('Расслабьте лицо и смотрите в камеру');
+  voice.say(t('Расслабьте лицо и смотрите в камеру'));
 }
 
 // ——— Рисование ———
@@ -339,10 +345,10 @@ function placeBars(pts) {
 
 function barHeight(d, scale) { return Math.min(1, Math.pow(Math.max(0, d) / scale, 0.6)) * 100; }
 
-function updateLive(t) {
+function updateLive(now) {
   const run = sess?.runner;
   if (!run) return;
-  $('phase-fill').style.width = `${run.progress(t) * 100}%`;
+  $('phase-fill').style.width = `${run.progress(now) * 100}%`;
   const showBars = run.measured && run.phase === 'effort';
   $('bar-a').classList.toggle('visible', showBars);
   $('bar-h').classList.toggle('visible', showBars);
@@ -381,17 +387,17 @@ function showIntro() {
   sess.runner = null;
   $('cuebox').hidden = true;
   $('btn-pause').hidden = true;
-  $('ex-name').textContent = ex.title;
-  $('ex-count').textContent = `Упражнение ${sess.idx + 1} из ${sess.list.length}`;
-  $('intro-region').textContent = ex.region;
-  $('intro-title').textContent = ex.title;
+  $('ex-name').textContent = t(ex.title);
+  $('ex-count').textContent = t('Упражнение {i} из {n}', { i: sess.idx + 1, n: sess.list.length });
+  $('intro-region').textContent = t(ex.region);
+  $('intro-title').textContent = t(ex.title);
   const paras = [...ex.howto];
   if (ex.voiceNote) paras.push(ex.voiceNote);
-  $('intro-text').innerHTML = paras.map((p) => `<p>${p}</p>`).join('');
+  $('intro-text').innerHTML = paras.map((p) => `<p>${t(p)}</p>`).join('');
   $('intro-hand-wrap').hidden = !ex.hand;
   $('intro-hand').checked = false;
   setSheet('intro');
-  voice.say(`${ex.title}. ${ex.howto[0]}`);
+  voice.say(`${t(ex.title)}. ${t(ex.howto[0])}`);
 }
 
 $('intro-start').addEventListener('click', () => { voice.unlock(); runExercise(); });
@@ -419,31 +425,33 @@ function onRunnerEvent(e) {
   const box = $('cuebox');
   if (e.type === 'phase') {
     box.classList.toggle('effort', e.phase === 'effort');
-    $('ex-count').textContent = `Повтор ${Math.min(e.rep + 1, run.plans.length)} из ${run.plans.length}`;
+    $('ex-count').textContent = t('Повтор {i} из {n}', { i: Math.min(e.rep + 1, run.plans.length), n: run.plans.length });
+    const cue = t(e.plan.cue);
     if (e.phase === 'relax') {
       const first = e.rep === 0;
-      const text = first ? 'Расслабьте лицо' : ex.relaxCue || 'Расслабьте';
+      const text = t(first ? 'Расслабьте лицо' : ex.relaxCue || 'Расслабьте');
       $('cue').textContent = text;
-      $('cue-hint').textContent = `Дальше: ${e.plan.cue[0].toLowerCase()}${e.plan.cue.slice(1)}`;
+      $('cue-hint').textContent = t('Дальше: {cue}', { cue: cue[0].toLowerCase() + cue.slice(1) });
       voice.say(text);
     } else if (e.phase === 'effort') {
-      $('cue').textContent = e.plan.cue;
-      $('cue-hint').textContent = sess.hint || 'Плавно, без усилия';
-      voice.say(e.plan.cue);
+      $('cue').textContent = cue;
+      $('cue-hint').textContent = sess.hint || t('Плавно, без усилия');
+      voice.say(cue);
     } else if (e.phase === 'cooldown') {
-      $('cue').textContent = ex.relaxCue || 'Расслабьте';
+      const text = t(ex.relaxCue || 'Расслабьте');
+      $('cue').textContent = text;
       $('cue-hint').textContent = '';
-      voice.say(ex.relaxCue || 'Расслабьте');
+      voice.say(text);
     }
   } else if (e.type === 'spark') {
     const bar = $('bar-a');
     bar.classList.remove('spark'); void bar.offsetWidth; bar.classList.add('spark');
-    $('cue-hint').textContent = `Есть движение ${side.adv(settings.affected)}!`;
+    $('cue-hint').textContent = t('Есть движение {side}!', { side: side.adv(settings.affected) });
   } else if (e.type === 'overpull') {
-    sess.hint = 'Мягче. Здоровую сторону можно придержать ладонью';
+    sess.hint = t('Мягче. Здоровую сторону можно придержать ладонью');
     $('cue-hint').textContent = sess.hint;
   } else if (e.type === 'fatigue') {
-    toast('Движения стали слабее — мышцы устали. Заканчиваем это упражнение.');
+    toast(t('Движения стали слабее — мышцы устали. Заканчиваем это упражнение.'));
   } else if (e.type === 'done') {
     sess.mode === 'checkin' ? finishPose(e.results) : finishExercise(e.results);
   }
@@ -465,11 +473,11 @@ function finishExercise(results) {
   $('bar-a').classList.remove('visible'); $('bar-h').classList.remove('visible');
   const overtime = performance.now() - sess.t0 > MAX_SESSION_MS;
   const shown = [...lines];
-  if (overtime) shown.push('Прошло 15 минут — на сегодня достаточно.');
-  $('result-title').textContent = ex.title;
+  if (overtime) shown.push(t('Прошло 15 минут — на сегодня достаточно.'));
+  $('result-title').textContent = t(ex.title);
   $('result-text').innerHTML = shown.map((l) => `<p>${l}</p>`).join('');
   const last = sess.idx >= sess.list.length - 1 || overtime;
-  $('result-next').textContent = last ? 'Завершить занятие' : 'Следующее упражнение';
+  $('result-next').textContent = t(last ? 'Завершить занятие' : 'Следующее упражнение');
   sess.lastOrOver = last;
   setSheet('result');
   voice.say(shown[0]);
@@ -508,8 +516,8 @@ $('pause-skip').addEventListener('click', () => {
 });
 $('btn-end').addEventListener('click', () => {
   if (step !== 'session') { leaveStage(); return; }
-  if (sess?.mode === 'checkin') { if (confirm('Прервать проверку? Результат не сохранится.')) { sess = null; leaveStage(); } return; }
-  if (confirm('Завершить занятие?')) finishSession();
+  if (sess?.mode === 'checkin') { if (confirm(t('Прервать проверку? Результат не сохранится.'))) { sess = null; leaveStage(); } return; }
+  if (confirm(t('Завершить занятие?'))) finishSession();
 });
 
 // ——— Еженедельная проверка ———
@@ -525,7 +533,7 @@ function beginCheckin(restPts) {
   const id = sess.record.id;
   photos.captureFace(video, restPts).then((b) => b && photos.putPhoto(`${id}:rest`, b));
   $('btn-pause').hidden = true;
-  voice.say('Проверка. Четыре выражения, по две попытки. Спокойно, как на занятиях.');
+  voice.say(t('Проверка. Четыре выражения, по две попытки. Спокойно, как на занятиях.'));
   setTimeout(() => { if (sess?.mode === 'checkin' && step === 'session') runPose(); }, 3000);
 }
 
@@ -533,7 +541,7 @@ function runPose() {
   const pose = sess.list[sess.idx];
   sess.shots = {};
   sess.hint = '';
-  $('ex-name').textContent = `Проверка: ${pose.short.toLowerCase()}`;
+  $('ex-name').textContent = t('Проверка: {pose}', { pose: t(pose.short).toLowerCase() });
   sess.runner = new ExerciseRunner({ ex: pose, plans: plansFor(pose, lmAffected(), nameOf), affected: lmAffected(), timing: CHECKIN_TIMING, onEvent: onRunnerEvent });
   setSheet(null);
   $('cuebox').hidden = false;
@@ -561,11 +569,11 @@ function finishCheckin() {
   rec.quality.light = L.length ? Math.round(L.reduce((a, b) => a + b, 0) / L.length) : null;
   if (rec.completed) { store.saveSession(rec); autoSync(); }
   stopStage();
-  voice.say(rec.completed ? 'Проверка завершена. Спасибо!' : 'Не получилось измерить. Попробуйте при лучшем свете.');
+  voice.say(t(rec.completed ? 'Проверка завершена. Спасибо!' : 'Не получилось измерить. Попробуйте при лучшем свете.'));
   $('cuebox').hidden = true;
   progressPose = 'smile';
   show('progress');
-  toast(rec.completed ? 'Проверка сохранена' : 'Не удалось измерить — попробуйте при лучшем свете', 4000);
+  toast(t(rec.completed ? 'Проверка сохранена' : 'Не удалось измерить — попробуйте при лучшем свете'), 4000);
 }
 
 function stopStage() {
@@ -590,7 +598,7 @@ function finishSession() {
   tracker = null;
   try { wakeLock?.release(); } catch { /* ignore */ }
   wakeLock = null;
-  voice.say('Занятие завершено. Спасибо!');
+  voice.say(t('Занятие завершено. Спасибо!'));
   renderSummary(rec);
   show('summary');
 }
@@ -599,25 +607,25 @@ function finishSession() {
 let summaryRec = null;
 function meter(moved, total) {
   if (!total) return '';
-  return `<span class="meter" aria-label="${moved} из ${total}">${Array.from({ length: total }, (_, i) => `<i class="${i < moved ? 'on' : ''}"></i>`).join('')}</span>`;
+  return `<span class="meter" aria-label="${t('{a} из {b}', { a: moved, b: total })}">${Array.from({ length: total }, (_, i) => `<i class="${i < moved ? 'on' : ''}"></i>`).join('')}</span>`;
 }
 
 function renderSummary(rec) {
   summaryRec = rec;
   const done = rec.exercises.filter((e) => !e.skipped);
-  $('sum-title').textContent = rec.completed ? 'Занятие завершено' : 'Занятие прервано';
-  $('sum-meta').textContent = `${minutes(rec.durationSec)} мин. Выполнено упражнений: ${done.length} из ${rec.exercises.length || done.length}.`;
+  $('sum-title').textContent = t(rec.completed ? 'Занятие завершено' : 'Занятие прервано');
+  $('sum-meta').textContent = t('{min} мин. Выполнено упражнений: {done} из {all}.', { min: minutes(rec.durationSec), done: done.length, all: rec.exercises.length || done.length });
   const note = $('sum-note');
   const totalMoved = done.reduce((n, e) => n + (e.movedA || 0), 0);
   if (rec.completed) {
     note.hidden = false;
     note.textContent = totalMoved
-      ? `Камера увидела движение на ${side.gen(rec.affected)} стороне в ${totalMoved} повторах. Каждый такой импульс — это работа нерва.`
-      : 'Сегодня камера не увидела движения на поражённой стороне. После операции восстановление обычно занимает недели и месяцы — регулярные спокойные попытки важнее результата каждого дня.';
+      ? t('Камера увидела движение на {side} стороне в {n} повторах. Каждый такой импульс — это работа нерва.', { side: side.gen(rec.affected), n: totalMoved })
+      : t('Сегодня камера не увидела движения на поражённой стороне. После операции восстановление обычно занимает недели и месяцы — регулярные спокойные попытки важнее результата каждого дня.');
   } else note.hidden = true;
   $('sum-list').innerHTML = rec.exercises.map((e) => `
     <li>
-      <div class="r-title"><span>${e.title}</span>${e.skipped ? '<span class="muted small">пропущено</span>' : meter(e.movedA || 0, e.aTotal || 0)}</div>
+      <div class="r-title"><span>${t(e.title)}</span>${e.skipped ? `<span class="muted small">${t('пропущено')}</span>` : meter(e.movedA || 0, e.aTotal || 0)}</div>
       ${e.skipped ? '' : `<div class="r-lines">${(e.lines || []).join(' ')}</div>`}
     </li>`).join('');
   document.querySelectorAll('[data-feel]').forEach((b) => b.setAttribute('aria-pressed', 'false'));
@@ -630,7 +638,7 @@ document.querySelectorAll('[data-feel]').forEach((b) => b.addEventListener('clic
   if (summaryRec.completed) { store.saveSession(summaryRec); autoSync(); }
   if (b.dataset.feel === 'twitch') {
     store.addNote({ type: 'twitch', source: 'after' });
-    toast('Отмечено. Памятка советует перерыв на 1–2 дня.', 5000);
+    toast(t('Отмечено. Памятка советует перерыв на 1–2 дня.'), 5000);
   }
 }));
 $('sum-save').addEventListener('click', () => show('home'));
@@ -640,28 +648,29 @@ $('sum-copy').addEventListener('click', () => summaryRec && share(reportText([su
 const FEEL = { good: 'хорошо', tired: 'устало', twitch: 'подёргивания' };
 
 function reportText(sessions) {
-  const out = ['Мимика — отчёт о лицевой гимнастике', ''];
+  const out = [t('Мимика — отчёт о лицевой гимнастике'), ''];
   for (const s of sessions) {
     const d = new Date(s.startedAt);
-    out.push(`${d.toLocaleDateString('ru-RU')} ${fmtTime(d)}, ${minutes(s.durationSec)} мин. Поражённая сторона: ${side.nom(s.affected)}.`);
-    if (s.checkin?.massage) out.push('Перед занятием — самомассаж.');
+    out.push(t('{date} {time}, {min} мин. Поражённая сторона: {side}.', { date: d.toLocaleDateString(locale()), time: fmtTime(d), min: minutes(s.durationSec), side: side.nom(s.affected) }));
+    if (s.checkin?.massage) out.push(t('Перед занятием — самомассаж.'));
     for (const e of s.exercises) {
-      if (e.skipped) { out.push(`— ${e.title}: пропущено`); continue; }
-      if (e.kind === 'guided') { out.push(`— ${e.title}: выполнено`); continue; }
+      const title = t(e.title);
+      if (e.skipped) { out.push(`— ${title}: ${t('пропущено')}`); continue; }
+      if (e.kind === 'guided') { out.push(`— ${title}: ${t('выполнено')}`); continue; }
       const parts = [];
-      if (e.aTotal) parts.push(`движение на поражённой стороне в ${e.movedA} из ${e.aTotal} повторов`);
-      if (e.ratio != null) parts.push(`≈${Math.round(e.ratio * 100)}% от здоровой стороны`);
-      if (e.kind === 'disp' && e.mmA != null) parts.push(`≈${e.mmA} мм против ${e.mmH} мм`);
-      if (e.kind === 'aperture' && e.id === 'eye_close' && e.closeA != null) parts.push(`глаз закрывается ≈ на ${e.closeA}% (здоровый — ${e.closeH}%)`);
-      if (e.assisted) parts.push('с помощью пальцев');
-      if (e.fatigue) parts.push('к концу — усталость');
-      if (e.syn) parts.push(`прищуривание глаза при движении рта в ${e.syn} повторах`);
-      out.push(`— ${e.title}: ${parts.join('; ') || 'нет данных камеры'}`);
+      if (e.aTotal) parts.push(t('движение на поражённой стороне в {m} из {n} повторов', { m: e.movedA, n: e.aTotal }));
+      if (e.ratio != null) parts.push(t('≈{p}% от здоровой стороны', { p: Math.round(e.ratio * 100) }));
+      if (e.kind === 'disp' && e.mmA != null) parts.push(t('≈{a} мм против {h} мм', { a: num(e.mmA), h: num(e.mmH) }));
+      if (e.kind === 'aperture' && e.id === 'eye_close' && e.closeA != null) parts.push(t('глаз закрывается ≈ на {a}% (здоровый — {h}%)', { a: e.closeA, h: e.closeH }));
+      if (e.assisted) parts.push(t('с помощью пальцев'));
+      if (e.fatigue) parts.push(t('к концу — усталость'));
+      if (e.syn) parts.push(t('прищуривание глаза при движении рта в {n} повторах', { n: e.syn }));
+      out.push(`— ${title}: ${parts.join('; ') || t('нет данных камеры')}`);
     }
-    if (s.after) out.push(`После занятия: ${FEEL[s.after]}.`);
+    if (s.after) out.push(t('После занятия: {feel}.', { feel: t(FEEL[s.after]) }));
     out.push('');
   }
-  out.push('Измерения приблизительные (камера телефона). Не является медицинским заключением.');
+  out.push(t('Измерения приблизительные (камера телефона). Не является медицинским заключением.'));
   return out.join('\n');
 }
 
@@ -669,7 +678,7 @@ async function share(text) {
   try {
     if (navigator.share) { await navigator.share({ text }); return; }
   } catch (e) { if (e.name === 'AbortError') return; }
-  try { await navigator.clipboard.writeText(text); toast('Отчёт скопирован'); } catch { toast('Не удалось скопировать'); }
+  try { await navigator.clipboard.writeText(text); toast(t('Отчёт скопирован')); } catch { toast(t('Не удалось скопировать')); }
 }
 
 // ——— История ———
@@ -679,7 +688,7 @@ function renderHistory() {
   const chart = $('hist-chart');
   const pts = all.slice(-20);
   if (pts.length < 2) {
-    chart.innerHTML = `<p class="empty">${pts.length ? 'После второго занятия здесь появится график.' : 'Пока нет занятий. Первое займёт 10–15 минут.'}</p>`;
+    chart.innerHTML = `<p class="empty">${t(pts.length ? 'После второго занятия здесь появится график.' : 'Пока нет занятий. Первое займёт 10–15 минут.')}</p>`;
   } else {
     const W = 320, H = 150, L = 34, R = 10, T = 10, B = 26;
     const x = (i) => L + (i * (W - L - R)) / (pts.length - 1);
@@ -687,9 +696,9 @@ function renderHistory() {
     const line = pts.map((s, i) => (s.index == null ? null : `${x(i)},${y(s.index)}`)).filter(Boolean).join(' ');
     const dots = pts.map((s, i) => (s.movedShare == null ? '' : `<circle cx="${x(i)}" cy="${y(s.movedShare)}" r="3.5" fill="#E49A2E" opacity=".8"/>`)).join('');
     const grid = [0, 0.5, 1].map((v) => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="#C9D4D8" stroke-width="1"/><text x="${L - 6}" y="${y(v) + 4}" font-size="11" text-anchor="end" fill="#5B6C75">${v * 100}%</text>`).join('');
-    const d0 = new Date(pts[0].startedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
-    const d1 = new Date(pts[pts.length - 1].startedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
-    chart.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="График восстановления">
+    const d0 = new Date(pts[0].startedAt).toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
+    const d1 = new Date(pts[pts.length - 1].startedAt).toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
+    chart.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${t('График восстановления')}">
       ${grid}
       <polyline points="${line}" fill="none" stroke="#1E2B33" stroke-width="2" stroke-linejoin="round"/>
       ${dots}
@@ -700,8 +709,8 @@ function renderHistory() {
   $('hist-list').innerHTML = all.slice().reverse().map((s) => {
     const d = new Date(s.startedAt);
     const items = s.exercises.filter((e) => !e.skipped && e.kind !== 'guided')
-      .map((e) => `<li>${e.title}: ${e.aTotal ? `движение в ${e.movedA} из ${e.aTotal}` : 'нет данных'}${e.ratio != null ? `, ≈${Math.round(e.ratio * 100)}%` : ''}</li>`).join('');
-    return `<details><summary><span>${fmtDay(d)}, ${fmtTime(d)}</span><span class="h-meta">${minutes(s.durationSec)} мин${s.after ? `, ${FEEL[s.after]}` : ''}</span></summary><ul>${items}</ul></details>`;
+      .map((e) => `<li>${t(e.title)}: ${e.aTotal ? t('движение в {m} из {n}', { m: e.movedA, n: e.aTotal }) : t('нет данных')}${e.ratio != null ? `, ≈${Math.round(e.ratio * 100)}%` : ''}</li>`).join('');
+    return `<details><summary><span>${fmtDay(d)}, ${fmtTime(d)}</span><span class="h-meta">${t('{min} мин', { min: minutes(s.durationSec) })}${s.after ? `, ${t(FEEL[s.after])}` : ''}</span></summary><ul>${items}</ul></details>`;
   }).join('');
 }
 
@@ -710,7 +719,7 @@ function renderHistory() {
 function openDashboard() {
   const cfg = sync.config();
   if (!cfg) return;
-  window.open(`${cfg.url}/dashboard#k=${encodeURIComponent(cfg.token)}`, '_blank', 'noopener');
+  window.open(`${cfg.url}/dashboard#k=${encodeURIComponent(cfg.token)}&l=${getLang()}`, '_blank', 'noopener');
 }
 $('sync-dashboard').addEventListener('click', openDashboard);
 $('hist-dashboard').addEventListener('click', openDashboard);
@@ -718,14 +727,14 @@ $('hist-dashboard').addEventListener('click', openDashboard);
 $('hist-copy').addEventListener('click', () => {
   const since = Date.now() - 7 * 864e5;
   const recent = store.loadSessions().filter((s) => s.completed && !isCheckin(s) && Date.parse(s.startedAt) > since);
-  if (!recent.length) { toast('За последние 7 дней занятий нет'); return; }
+  if (!recent.length) { toast(t('За последние 7 дней занятий нет')); return; }
   share(reportText(recent));
 });
 
 // ——— Прогресс (еженедельные проверки) ———
 let progressPose = 'smile';
 const objectUrls = [];
-const cap = (t) => t[0].toUpperCase() + t.slice(1);
+const cap = (str) => str[0].toUpperCase() + str.slice(1);
 
 $('pg-start').addEventListener('click', () => { voice.unlock(); startStage('checkin'); });
 
@@ -742,26 +751,26 @@ function renderProgress() {
   const all = store.loadSessions().filter((x) => isCheckin(x) && x.completed)
     .sort((a, b) => a.startedAt.localeCompare(b.startedAt));
   const body = $('pg-body');
-  $('pg-start').textContent = all.length ? 'Сделать проверку' : 'Сделать первую проверку';
+  $('pg-start').textContent = t(all.length ? 'Сделать проверку' : 'Сделать первую проверку');
   if (!all.length) {
-    body.innerHTML = '<p class="muted pg-block">Первая проверка станет точкой отсчёта. Через неделю здесь появится сравнение.</p>';
+    body.innerHTML = `<p class="muted pg-block">${t('Первая проверка станет точкой отсчёта. Через неделю здесь появится сравнение.')}</p>`;
     return;
   }
   const first = all[0], last = all[all.length - 1], two = all.length > 1;
   const A = side.adv(settings.affected), H = side.adv(other(settings.affected));
   const poses = [REST_POSE, ...POSES];
-  let html = `<div class="pg-block"><h3>Фото: ${two ? 'первая и последняя проверка' : 'точка отсчёта'}</h3>
-    <div class="pose-seg" id="pg-seg">${poses.map((p) => `<button data-pose="${p.id}" aria-pressed="${p.id === progressPose}">${p.short}</button>`).join('')}</div>
+  let html = `<div class="pg-block"><h3>${t(two ? 'Фото: первая и последняя проверка' : 'Фото: точка отсчёта')}</h3>
+    <div class="pose-seg" id="pg-seg">${poses.map((p) => `<button data-pose="${p.id}" aria-pressed="${p.id === progressPose}">${t(p.short)}</button>`).join('')}</div>
     <div class="compare">
-      <figure><div class="ph" id="ph-first">…</div><figcaption>${two ? 'Первая' : 'Точка отсчёта'}: ${fmtDay(new Date(first.startedAt))}</figcaption></figure>
-      ${two ? `<figure><div class="ph" id="ph-last">…</div><figcaption>Последняя: ${fmtDay(new Date(last.startedAt))}</figcaption></figure>`
-            : '<figure><div class="ph">Через неделю здесь появится новое фото для сравнения</div></figure>'}
+      <figure><div class="ph" id="ph-first">…</div><figcaption>${t(two ? 'Первая: {day}' : 'Точка отсчёта: {day}', { day: fmtDay(new Date(first.startedAt)) })}</figcaption></figure>
+      ${two ? `<figure><div class="ph" id="ph-last">…</div><figcaption>${t('Последняя: {day}', { day: fmtDay(new Date(last.startedAt)) })}</figcaption></figure>`
+            : `<figure><div class="ph">${t('Через неделю здесь появится новое фото для сравнения')}</div></figure>`}
     </div></div>`;
-  html += `<div class="pg-block"><h3>Что видела камера</h3>
-    <p class="muted small">Сплошная линия — ${A} (лучшая из двух попыток), полоса — разброс попыток. Пунктир — ${H}. Оранжевая точка — неделя с неидеальными условиями.</p>`;
+  html += `<div class="pg-block"><h3>${t('Что видела камера')}</h3>
+    <p class="muted small">${t('Сплошная линия — {a} (лучшая из двух попыток), полоса — разброс попыток. Пунктир — {h}. Оранжевая точка — неделя с неидеальными условиями.', { a: A, h: H })}</p>`;
   for (const p of POSES) html += trendCard(p, all, first, A, H);
   html += '</div>';
-  html += `<div class="pg-block"><h3>Все проверки</h3><div class="ci-list">${all.slice().reverse().map((c) => {
+  html += `<div class="pg-block"><h3>${t('Все проверки')}</h3><div class="ci-list">${all.slice().reverse().map((c) => {
     const fl = qualityFlags(c, first);
     return `<div>${cap(fmtDay(new Date(c.startedAt)))}, ${fmtTime(new Date(c.startedAt))}${fl.length ? `<div class="flags">${fl.join(', ')}</div>` : ''}</div>`;
   }).join('')}</div></div>`;
@@ -780,7 +789,7 @@ async function loadComparePhotos(first, last, two) {
   const set = async (el, rec) => {
     if (!el) return;
     const u = await photoUrl(`${rec.id}:${progressPose}`);
-    el.innerHTML = u ? `<img alt="Фото проверки" src="${u}">` : 'Фото нет';
+    el.innerHTML = u ? `<img alt="${t('Фото проверки')}" src="${u}">` : t('Фото нет');
   };
   await set($('ph-first'), first);
   if (two) await set($('ph-last'), last);
@@ -788,23 +797,25 @@ async function loadComparePhotos(first, last, two) {
 
 function trendCard(pose, all, first, A, H) {
   const pts = all.map((c) => ({ c, v: (c.poses || []).find((x) => x.id === pose.id) })).filter((x) => x.v && x.v.a);
-  if (!pts.length) return `<div class="trend"><div class="tt">${pose.title}</div><div class="tv">Нет данных</div></div>`;
+  if (!pts.length) return `<div class="trend"><div class="tt">${t(pose.title)}</div><div class="tv">${t('Нет данных')}</div></div>`;
   const lv = pts[pts.length - 1].v, pct = lv.unit === '%';
-  const u = pct ? '%' : ' мм';
-  const range = (o) => (o.lo === o.hi ? '' : ` (попытки ${o.lo}–${o.hi}${u})`);
+  const mm = t('мм');
+  const u = pct ? '%' : ` ${mm}`;
+  const range = (o) => (o.lo === o.hi ? '' : ` ${t('(попытки {lo}–{hi}{u})', { lo: num(o.lo), hi: num(o.hi), u })}`);
   const sideText = (o, name) => (o.best > 0
-    ? (pct ? `глаз ${name} закрывается ≈ на ${o.best}%${range(o)}` : `${name} ≈${o.best} мм${range(o)}`)
-    : `${name} движение не обнаружено`);
-  const text = `Последняя: ${sideText(lv.a, A)}; ${sideText(lv.h, H)}.`;
+    ? (pct ? t('глаз {side} закрывается ≈ на {v}%{range}', { side: name, v: num(o.best), range: range(o) })
+           : t('{side} ≈{v} мм{range}', { side: name, v: num(o.best), range: range(o) }))
+    : t('{side} движение не обнаружено', { side: name }));
+  const text = t('Последняя: {a}; {h}.', { a: sideText(lv.a, A), h: sideText(lv.h, H) });
   const W = 320, Hh = 110, L = 30, R = 10, T = 8, B = 18;
   const max = pct ? 100 : Math.max(2, ...pts.map((p) => Math.max(p.v.a.hi, p.v.h.best))) * 1.1;
   const n = pts.length;
   const x = (i) => (n === 1 ? (L + W - R) / 2 : L + (i * (W - L - R)) / (n - 1));
   const y = (v) => T + (1 - Math.min(v, max) / max) * (Hh - T - B);
-  let svg = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${pose.title}: тренд">`;
+  let svg = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${t('{title}: тренд', { title: t(pose.title) })}">`;
   svg += `<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="#C9D4D8"/>`;
   svg += `<text x="${L - 5}" y="${y(0) + 4}" font-size="10" text-anchor="end" fill="#5B6C75">0</text>`;
-  svg += `<text x="${L - 5}" y="${y(max) + 8}" font-size="10" text-anchor="end" fill="#5B6C75">${pct ? '100%' : Math.round(max) + ' мм'}</text>`;
+  svg += `<text x="${L - 5}" y="${y(max) + 8}" font-size="10" text-anchor="end" fill="#5B6C75">${pct ? '100%' : `${Math.round(max)} ${mm}`}</text>`;
   if (n > 1) {
     const band = pts.map((p, i) => `${x(i)},${y(p.v.a.hi)}`).concat(pts.slice().reverse().map((p, j) => `${x(n - 1 - j)},${y(p.v.a.lo)}`)).join(' ');
     svg += `<polygon points="${band}" fill="#F6D9A8" opacity=".7"/>`;
@@ -813,17 +824,18 @@ function trendCard(pose, all, first, A, H) {
   }
   pts.forEach((p, i) => {
     const flagged = qualityFlags(p.c, first).length > 0;
-    svg += `<circle cx="${x(i)}" cy="${y(p.v.a.best)}" r="${flagged ? 4.5 : 3}" fill="${flagged ? '#E49A2E' : '#1E2B33'}"><title>${fmtDay(new Date(p.c.startedAt))}: ${p.v.a.best}${pct ? '%' : ' мм'}</title></circle>`;
+    svg += `<circle cx="${x(i)}" cy="${y(p.v.a.best)}" r="${flagged ? 4.5 : 3}" fill="${flagged ? '#E49A2E' : '#1E2B33'}"><title>${fmtDay(new Date(p.c.startedAt))}: ${num(p.v.a.best)}${u}</title></circle>`;
   });
-  const d = (c) => new Date(c.startedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+  const d = (c) => new Date(c.startedAt).toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
   svg += `<text x="${x(0)}" y="${Hh - 4}" font-size="10" text-anchor="${n === 1 ? 'middle' : 'start'}" fill="#5B6C75">${d(pts[0].c)}</text>`;
   if (n > 1) svg += `<text x="${x(n - 1)}" y="${Hh - 4}" font-size="10" text-anchor="end" fill="#5B6C75">${d(pts[n - 1].c)}</text>`;
   svg += '</svg>';
-  return `<div class="trend"><div class="tt"><span>${pose.title}</span></div><div class="tv">${text}</div>${svg}</div>`;
+  return `<div class="trend"><div class="tt"><span>${t(pose.title)}</span></div><div class="tv">${text}</div>${svg}</div>`;
 }
 
 // ——— Настройки ———
 function renderSettings() {
+  document.querySelectorAll('input[name="lang"]').forEach((i) => (i.checked = i.value === getLang()));
   document.querySelectorAll('input[name="affected"]').forEach((i) => (i.checked = i.value === settings.affected));
   document.querySelectorAll('input[name="reps"]').forEach((i) => (i.checked = +i.value === settings.reps));
   document.querySelectorAll('input[name="tempo"]').forEach((i) => (i.checked = i.value === settings.tempo));
@@ -831,20 +843,23 @@ function renderSettings() {
   $('set-voice').checked = settings.voice;
   $('set-swap').checked = settings.swapSides;
   renderSync();
-  $('set-exercises').innerHTML = EXERCISES.map((e) => `<label class="toggle"><input type="checkbox" data-ex="${e.id}" ${settings.enabled[e.id] ? 'checked' : ''}> <span>${e.title}</span></label>`).join('');
+  $('set-exercises').innerHTML = EXERCISES.map((e) => `<label class="toggle"><input type="checkbox" data-ex="${e.id}" ${settings.enabled[e.id] ? 'checked' : ''}> <span>${t(e.title)}</span></label>`).join('');
 }
 
 function saveSettingsNow() { store.saveSettings(settings); }
+// Смена языка: сохраняем и перезагружаем — так весь интерфейс и голос сразу на новом языке.
+document.querySelectorAll('input[name="lang"]').forEach((i) => i.addEventListener('change', () => { settings.lang = i.value; saveSettingsNow(); location.reload(); }));
 document.querySelectorAll('input[name="affected"]').forEach((i) => i.addEventListener('change', () => { settings.affected = i.value; settings.sideConfirmed = false; saveSettingsNow(); }));
 document.querySelectorAll('input[name="reps"]').forEach((i) => i.addEventListener('change', () => { settings.reps = +i.value; saveSettingsNow(); }));
 document.querySelectorAll('input[name="tempo"]').forEach((i) => i.addEventListener('change', () => { settings.tempo = i.value; saveSettingsNow(); renderTempoHint(); }));
 
 // Подсказка о темпе и примерной длительности занятия (памятка: 10–15 минут).
+const tr = t; // внутри renderTempoHint имя t занято темпом
 function renderTempoHint() {
   const t = TIMING[settings.tempo] || TIMING.slow;
   const mins = Math.round(estimateSessionSec(EXERCISES.filter((e) => settings.enabled[e.id]), settings.reps, t) / 60);
-  let text = `Напряжение ${t.effort / 1000} с, отдых ${t.relax / 1000} с. Занятие займёт около ${mins} мин.`;
-  if (mins > 15) text += ' Это больше 15 минут из памятки — уменьшите число повторов или отключите часть упражнений.';
+  let text = tr('Напряжение {e} с, отдых {r} с. Занятие займёт около {min} мин.', { e: t.effort / 1000, r: t.relax / 1000, min: mins });
+  if (mins > 15) text += ` ${tr('Это больше 15 минут из памятки — уменьшите число повторов или отключите часть упражнений.')}`;
   $('tempo-hint').textContent = text;
 }
 $('set-voice').addEventListener('change', (e) => { settings.voice = e.target.checked; voice.setVoice(settings.voice); saveSettingsNow(); });
@@ -853,7 +868,7 @@ $('set-exercises').addEventListener('change', (e) => {
   const id = e.target.dataset.ex;
   if (!id) return;
   settings.enabled[id] = e.target.checked;
-  if (!Object.values(settings.enabled).some(Boolean)) { settings.enabled[id] = true; e.target.checked = true; toast('Нужно оставить хотя бы одно упражнение'); }
+  if (!Object.values(settings.enabled).some(Boolean)) { settings.enabled[id] = true; e.target.checked = true; toast(t('Нужно оставить хотя бы одно упражнение')); }
   saveSettingsNow();
 });
 $('set-export').addEventListener('click', async () => {
@@ -874,13 +889,13 @@ function renderSync() {
   $('sync-setup').hidden = !!cfg;
   $('sync-actions').hidden = !cfg;
   box.className = 'sync-status';
-  if (!cfg) { box.textContent = 'Не настроено. История хранится только на этом телефоне.'; return; }
+  if (!cfg) { box.textContent = t('Не настроено. История хранится только на этом телефоне.'); return; }
   const st = sync.status();
   const pending = sync.pendingCount();
-  const parts = [`Сервер: ${sync.hostLabel(cfg.url)}.`];
-  if (st.lastOk) parts.push(`Последняя копия: ${fmtDay(new Date(st.lastOk))} в ${fmtTime(new Date(st.lastOk))}.`);
-  if (st.serverCount != null) parts.push(`Занятий на сервере: ${st.serverCount}.`);
-  if (pending) parts.push(`Ждут отправки: ${pending}.`);
+  const parts = [t('Сервер: {host}.', { host: sync.hostLabel(cfg.url) })];
+  if (st.lastOk) parts.push(t('Последняя копия: {day} в {time}.', { day: fmtDay(new Date(st.lastOk)), time: fmtTime(new Date(st.lastOk)) }));
+  if (st.serverCount != null) parts.push(t('Занятий на сервере: {n}.', { n: st.serverCount }));
+  if (pending) parts.push(t('Ждут отправки: {n}.', { n: pending }));
   if (st.lastError && (!st.lastOk || st.lastError.at > st.lastOk)) {
     parts.push(sync.errorText(st.lastError.code, st.lastError.status));
     box.classList.add('warn');
@@ -896,15 +911,15 @@ function busy(btn, text) {
 
 $('sync-paste').addEventListener('click', async () => {
   try {
-    const t = await navigator.clipboard.readText();
-    if (t) $('sync-code').value = t.trim();
-  } catch { toast('Не удалось вставить. Нажмите на поле и выберите «Вставить».'); $('sync-code').focus(); }
+    const text = await navigator.clipboard.readText();
+    if (text) $('sync-code').value = text.trim();
+  } catch { toast(t('Не удалось вставить. Нажмите на поле и выберите «Вставить».')); $('sync-code').focus(); }
 });
 
 $('sync-connect').addEventListener('click', async () => {
   const cfg = sync.parseSetup($('sync-code').value);
   if (!cfg) { toast(sync.errorText('badcode'), 5000); return; }
-  const done = busy($('sync-connect'), 'Проверяю…');
+  const done = busy($('sync-connect'), t('Проверяю…'));
   try {
     const onServer = await sync.check(cfg);
     sync.saveConfig(cfg);
@@ -913,8 +928,8 @@ $('sync-connect').addEventListener('click', async () => {
     const localCount = store.loadSessions().filter((x) => x.completed).length;
     await sync.syncNow();
     renderSync();
-    toast('Подключено. Занятия будут сохраняться на Raspberry Pi.', 4000);
-    if (onServer > 0 && localCount === 0 && confirm(`На сервере уже есть занятия: ${onServer}. Загрузить их на телефон?`)) {
+    toast(t('Подключено. Занятия будут сохраняться на Raspberry Pi.'), 4000);
+    if (onServer > 0 && localCount === 0 && confirm(t('На сервере уже есть занятия: {n}. Загрузить их на телефон?', { n: onServer }))) {
       await doRestore();
     }
   } catch (e) {
@@ -923,11 +938,11 @@ $('sync-connect').addEventListener('click', async () => {
 });
 
 $('sync-now').addEventListener('click', async () => {
-  const done = busy($('sync-now'), 'Отправляю…');
+  const done = busy($('sync-now'), t('Отправляю…'));
   const r = await sync.syncNow();
   done();
   renderSync();
-  toast(r.ok ? (r.sent ? `Отправлено занятий: ${r.sent}` : 'Всё уже сохранено на сервере') : sync.errorText(r.error, r.status), r.ok ? 3000 : 6000);
+  toast(r.ok ? (r.sent ? t('Отправлено занятий: {n}', { n: r.sent }) : t('Всё уже сохранено на сервере')) : sync.errorText(r.error, r.status), r.ok ? 3000 : 6000);
 });
 
 async function doRestore() {
@@ -936,32 +951,32 @@ async function doRestore() {
     settings = store.loadSettings();
     voice.setVoice(settings.voice);
     renderSettings();
-    toast(r.added ? `Восстановлено занятий: ${r.added}` : 'Новых занятий на сервере нет — всё уже на телефоне', 4000);
+    toast(r.added ? t('Восстановлено занятий: {n}', { n: r.added }) : t('Новых занятий на сервере нет — всё уже на телефоне'), 4000);
   } catch (e) {
     toast(sync.errorText(e.code, e.status), 6000);
   }
 }
 $('sync-restore').addEventListener('click', async () => {
-  if (!confirm('Загрузить историю с сервера? Занятия на телефоне сохранятся, недостающие будут добавлены.')) return;
-  const done = busy($('sync-restore'), 'Загружаю…');
+  if (!confirm(t('Загрузить историю с сервера? Занятия на телефоне сохранятся, недостающие будут добавлены.'))) return;
+  const done = busy($('sync-restore'), t('Загружаю…'));
   await doRestore();
   done();
 });
 
 $('sync-forget').addEventListener('click', () => {
-  if (!confirm('Отключить резервную копию? Данные на телефоне и на сервере останутся, но новые занятия перестанут отправляться.')) return;
+  if (!confirm(t('Отключить резервную копию? Данные на телефоне и на сервере останутся, но новые занятия перестанут отправляться.'))) return;
   sync.saveConfig(null);
   settings = store.loadSettings();
   renderSync();
 });
 
 $('set-clear').addEventListener('click', () => {
-  if (!confirm('Удалить все занятия и настройки с этого телефона? Копия на Raspberry Pi, если она подключена, останется.')) return;
+  if (!confirm(t('Удалить все занятия и настройки с этого телефона? Копия на Raspberry Pi, если она подключена, останется.'))) return;
   store.clearAll();
   photos.clearPhotos();
   settings = store.loadSettings();
   renderSettings();
-  toast('Данные удалены');
+  toast(t('Данные удалены'));
 });
 
 // ——— Запуск ———

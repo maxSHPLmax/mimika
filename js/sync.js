@@ -2,6 +2,7 @@
 // Занятия уходят на сервер после каждого сохранения; если сервер недоступен —
 // остаются в очереди и отправляются при следующей возможности.
 import * as store from './storage.js';
+import { t } from './i18n.js';
 
 const STATE_KEY = 'mimika.syncstate.v1';
 const TIMEOUT_MS = 12000;
@@ -65,11 +66,11 @@ async function request(cfg, path, { method = 'GET', body } = {}) {
 
 export function errorText(code, status) {
   switch (code) {
-    case 'network': return 'Сервер недоступен. Проверьте, что на iPhone включён Tailscale, а Raspberry Pi работает.';
-    case 'timeout': return 'Сервер не ответил вовремя.';
-    case 'auth': return 'Неверный ключ доступа — вставьте код настройки заново.';
-    case 'badcode': return 'Код не распознан. Он должен начинаться с «mimika-sync|https://».';
-    default: return `Ошибка сервера${status ? ` (${status})` : ''}.`;
+    case 'network': return t('Сервер недоступен. Проверьте, что Raspberry Pi включён и подключён к интернету.');
+    case 'timeout': return t('Сервер не ответил вовремя.');
+    case 'auth': return t('Неверный ключ доступа — вставьте код настройки заново.');
+    case 'badcode': return t('Код не распознан. Он должен начинаться с «mimika-sync|https://».');
+    default: return status ? t('Ошибка сервера ({status}).', { status }) : t('Ошибка сервера.');
   }
 }
 

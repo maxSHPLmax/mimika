@@ -55,6 +55,20 @@ History is stored in Safari's storage on the phone. Removing the app from the ho
 screen, or a phone reset, loses it. `pi-server/` contains a small backup server for a
 Raspberry Pi with Tailscale. See **pi-server/README.md** for the 3-minute setup.
 
+## 2c. Languages (Russian / Polish)
+
+Settings → **Язык · Język** switches the whole app: screens, exercise instructions, voice
+prompts (iOS "Zosia" for Polish, "Milena" for Russian), feedback, reports and the Pi
+dashboard (which also has its own RU/PL button).
+
+- Russian is the source text. `js/i18n-pl.js` maps each Russian string to Polish, and
+  `t('…')` looks it up at runtime. A missing translation falls back to Russian, so nothing breaks.
+- Stored history keeps Russian names (e.g. exercise titles). They're translated when shown,
+  so old sessions also appear in Polish.
+- `npm test` includes `tests/i18n.test.js`, which fails if an exercise or prompt has no Polish
+  translation, or if `{placeholders}` differ between the two languages.
+- To add a language: create `js/i18n-xx.js` with the same keys and register it in `js/i18n.js`.
+
 ## 3. Run locally (for development)
 
 ```bash

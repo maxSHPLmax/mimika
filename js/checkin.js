@@ -2,6 +2,7 @@
 // чтобы результаты были сравнимы между собой (в отличие от обычных занятий).
 import { EXERCISES, planReps } from './exercises.js';
 import { FACE_WIDTH_MM } from './geometry.js';
+import { t } from './i18n.js';
 
 export const CHECKIN_TIMING = { first: 4000, effort: 4000, relax: 5000 };
 export const CHECKIN_REPS = 2;
@@ -53,11 +54,11 @@ export function checkinDue(sessions, now = Date.now()) {
 // Условия съёмки, из-за которых неделю сложно сравнивать с первой проверкой.
 export function qualityFlags(rec, first) {
   const f = [];
-  if (rec.quality?.light != null && rec.quality.light < 70) f.push('мало света');
+  if (rec.quality?.light != null && rec.quality.light < 70) f.push(t('мало света'));
   if (first && first !== rec && first.quality?.faceFrac && rec.quality?.faceFrac) {
     const k = rec.quality.faceFrac / first.quality.faceFrac;
-    if (k < 0.8 || k > 1.25) f.push('другое расстояние до камеры');
+    if (k < 0.8 || k > 1.25) f.push(t('другое расстояние до камеры'));
   }
-  if ((rec.poses || []).some((p) => p.flag)) f.push('не все попытки измерены');
+  if ((rec.poses || []).some((p) => p.flag)) f.push(t('не все попытки измерены'));
   return f;
 }
